@@ -37,7 +37,8 @@ struct forest_info{
     int64_t *fileid;
     int64_t *num_trees;
     int64_t *num_halos;
-    int64_t *num_bytes;
+    int64_t *num_ascii_bytes;
+    int64_t *num_binary_bytes;
     int64_t *offset;
     char (*filename)[LOCATIONS_FILENAME_SIZE];
 };    
@@ -267,12 +268,13 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
 
     struct forest_info *forest_info = my_calloc(sizeof(struct forest_info), 1);
     forest_info->nforests = 1;
-    forest_info->forestid = my_calloc(sizeof(int64_t), nforests);
-    forest_info->fileid   = my_calloc(sizeof(int64_t), nforests);
-    forest_info->num_trees = my_calloc(sizeof(int64_t), nforests);
-    forest_info->num_halos = my_calloc(sizeof(int64_t), nforests);
-    forest_info->num_bytes = my_calloc(sizeof(int64_t), nforests);
-    forest_info->offset    = my_calloc(sizeof(int64_t), nforests);
+    forest_info->forestid = my_calloc(sizeof(*(forest_info->forestid)), nforests);
+    forest_info->fileid   = my_calloc(sizeof(*(forest_info->fileid)), nforests);
+    forest_info->num_trees = my_calloc(sizeof(*(forest_info->num_trees)), nforests);
+    forest_info->num_halos = my_calloc(sizeof(*(forest_info->num_halos)), nforests);
+    forest_info->num_ascii_bytes = my_calloc(sizeof(*(forest_info->num_ascii_bytes)), nforests);
+    forest_info->num_binary_bytes = my_calloc(sizeof(*(forest_info->num_binary_bytes)), nforests);
+    forest_info->offset    = my_calloc(sizeof(*(forest_info->offset)), nforests);
     forest_info->filename  = my_calloc(sizeof(*(forest_info->filename)), nforests);
 
     int64_t *histogram_fileids = my_calloc(sizeof(*histogram_fileids), nfiles);
@@ -345,7 +347,7 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
                     
             forest_info->fileid[forest_index] = max_common_fileid;
             for(int64_t j=start_index_forest;j<end_index_forest;j++) {
-                forest_info->num_bytes[forest_index] += locations[j].bytes;
+                forest_info->num_ascii_bytes[forest_index] += locations[j].bytes;
             }
 
             /* We have a new forest on the current line */
@@ -373,12 +375,13 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
             forest_info->nforests, nforests);
     
     /* free the extra memory claimed by forest_info */
-    forest_info->forestid = my_realloc(forest_info->forestid, sizeof(int64_t), nforests, "struct forest_info (forestid)");
-    forest_info->fileid   = my_realloc(forest_info->fileid, sizeof(int64_t), nforests, "struct forest_info (fileid)");
-    forest_info->num_trees = my_realloc(forest_info->num_trees, sizeof(int64_t), nforests, "struct forest_info (num_trees)");
-    forest_info->num_halos = my_realloc(forest_info->num_halos, sizeof(int64_t), nforests, "struct forest_info (num_halos)");
-    forest_info->num_bytes = my_realloc(forest_info->num_bytes, sizeof(int64_t), nforests, "struct forest_info (num_bytes)");
-    forest_info->offset    = my_realloc(forest_info->offset, sizeof(int64_t), nforests, "struct forest_info (offset)");
+    forest_info->forestid = my_realloc(forest_info->forestid, sizeof(*(forest_info->forestid)), nforests, "struct forest_info (forestid)");
+    forest_info->fileid   = my_realloc(forest_info->fileid, sizeof(*(forest_info->fileid)), nforests, "struct forest_info (fileid)");
+    forest_info->num_trees = my_realloc(forest_info->num_trees, sizeof(*(forest_info->num_trees)), nforests, "struct forest_info (num_trees)");
+    forest_info->num_halos = my_realloc(forest_info->num_halos, sizeof(*(forest_info->num_halos)), nforests, "struct forest_info (num_halos)");
+    forest_info->num_ascii_bytes = my_realloc(forest_info->num_ascii_bytes, sizeof(*(forest_info->num_ascii_bytes)), nforests, "struct forest_info (num_ascii_bytes)");
+    forest_info->num_binary_bytes = my_realloc(forest_info->num_binary_bytes, sizeof(*(forest_info->num_binary_bytes)), nforests, "struct forest_info (num_binary_bytes)");
+    forest_info->offset    = my_realloc(forest_info->offset, sizeof(*(forest_info->offset)), nforests, "struct forest_info (offset)");
     forest_info->filename  = my_realloc(forest_info->filename, sizeof(*(forest_info->filename)), nforests, "struct forest_info (filename)");
     XASSERT(sizeof(*(forest_info->filename)) > 8,
             "size of filename holder = %zu must be larger than a pointer size",
@@ -464,8 +467,8 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             /* found a new-line but before parsing check that enough memory has been allocated */
             if((forest_offset+nhalos) >= *nhalos_allocated) {
                 *nhalos_allocated += 100000;
-                *source_forest = my_realloc(*source_forest, sizeof(struct output_dtype), *nhalos_allocated, "struct source forest");
-                *source_info = my_realloc(*source_info, sizeof(struct additional_info), *nhalos_allocated, "struct source info");
+                *source_forest = my_realloc(*source_forest, sizeof(**source_forest), *nhalos_allocated, "struct source forest");
+                *source_info = my_realloc(*source_info, sizeof(**source_info), *nhalos_allocated, "struct source info");
             }
 
             struct output_dtype *forest = *source_forest + forest_offset;
@@ -680,12 +683,13 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
         const int64_t new_upid = info[loc].id;
         if(new_upid != upid && CTREES_UPID_BUG == 0) {
             fprintf(stderr, ANSI_COLOR_RED "Fixing upid for i=%"PRId64" original upid =%"PRId64" new fof upid = %"PRId64 ANSI_COLOR_RESET"\n"
-                    ANSI_COLOR_BLUE"Email Peter Behroozi (pbehroozi@gmail.com) about the bug in Consistent Trees code"ANSI_COLOR_RESET"\n",
+                    ANSI_COLOR_BLUE"Email Peter Behroozi (pbehroozi@gmail.com) about bug in Consistent Trees code"ANSI_COLOR_RESET"\n",
                     i, upid, new_upid);
             CTREES_UPID_BUG = 1;
             *interrupted = 1;
         }
         info[i].upid = new_upid;
+        info[i].pid  = new_upid;
     }
 #undef ID_COMPARATOR
 #undef SCALE_ID_COMPARATOR
@@ -697,6 +701,8 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
 
 void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, const int max_snapnum)
 {
+    /* fprintf(stderr,"IN MERGERTREE totnhalos = %"PRId64"\n",totnhalos); */
+    
     const int nsnapshots = max_snapnum + 1;
     float *scales = my_malloc(sizeof(*scales), nsnapshots);
     for(int i=0;i<nsnapshots;i++) {
@@ -710,9 +716,12 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
     
     /* Sort the trees based on scale, upid, and pid */
     /* Descending sort on scale, and then ascending sort on upid.
-       The last pid sort is so that the FOF halo comes before the (sub-)subhalos. 
+       The pid sort is so that the FOF halo comes before the (sub-)subhalos.
+       The last id sort is such that the ordering of (sub-)subhalos
+       is unique (stable sort, since id's are unique) 
      */
-#define PID_COMPARATOR(x, y)         ((x.pid > y.pid ? 1:(x.pid < y.pid ? -1:0)))
+#define ID_COMPARATOR(x, y)         ((x.id > y.id ? 1:(x.id < y.id ? -1: 0)))    
+#define PID_COMPARATOR(x, y)         ((x.pid > y.pid ? 1:(x.pid < y.pid ? -1:ID_COMPARATOR(x,y))))
 #define UPID_COMPARATOR(x, y)         ((x.upid > y.upid ? 1:(x.upid < y.upid ? -1:PID_COMPARATOR(x,y))))
 /* Note, the negated order in the scale comparison . this ensures descending sort */    
 #define SCALE_UPID_COMPARATOR(x,y)    ((x.scale > y.scale ? -1:(x.scale < y.scale ? 1:UPID_COMPARATOR(x, y))) )
@@ -743,12 +752,15 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
         }
         
         if(info[i].pid == -1) {
-            forest[i].FirstHaloInFOFgroup = i;
+            XASSERT(i < INT_MAX,
+                    "Assigning to integer i = %"PRId64" is more than %d\n",
+                    i, INT_MAX);
+            forest[i].FirstHaloInFOFgroup = (int) i;
             forest[i].NextHaloInFOFgroup = -1;
             FirstHaloInFOFgroup = i;
             fof_id = info[i].id;
             continue;
-        } else {
+        } else { 
             if(FirstHaloInFOFgroup == -1) {
                 fprintf(stderr,"About to crash\n");
                 for(int64_t k=0;k<totnhalos;k++) {
@@ -762,7 +774,10 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
                     "id = %"PRId64" pid = %"PRId64" upid = %"PRId64" snapnum = %d\n",
                     i,info[i].id, info[i].pid, info[i].upid, forest[i].SnapNum);
             
-            if((info[i].pid == fof_id) || (info[i].upid == fof_id) ) {
+            if((info[i].upid == fof_id) ) {
+                XASSERT(FirstHaloInFOFgroup < INT_MAX,
+                        "Assigning FirstHaloInFOFgroup = %"PRId64". Must be less than %d\n",
+                        FirstHaloInFOFgroup, INT_MAX);
                 forest[i].FirstHaloInFOFgroup = FirstHaloInFOFgroup;
             } else {
                 /* Should not reach here..I have already sorted the forest such that the FOF appears before the subs */
@@ -778,21 +793,25 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
             }
             int64_t insertion_point = FirstHaloInFOFgroup;
             while(forest[insertion_point].NextHaloInFOFgroup != -1) {
-                insertion_point = forest[insertion_point].NextHaloInFOFgroup;
-                XASSERT(insertion_point >=0 && insertion_point < totnhalos,
-                        "Inserting next halo in FOF group into invalid index. insertion_point = %"PRId64" totnhalos = %"PRId64"\n",
-                        insertion_point, totnhalos);
+                const int64_t nexthalo = forest[insertion_point].NextHaloInFOFgroup;
+                XASSERT(nexthalo >=0 && nexthalo < totnhalos,
+                        "Inserting next halo in FOF group into invalid index. nexthalo = %"PRId64" totnhalos = %"PRId64"\n",
+                        nexthalo, totnhalos);
+
+                /* if(forest[nexthalo].Mvir < forest[i].Mvir) { */
+                /*     forest[i].NextHaloInFOFgroup = nexthalo; */
+                /*     break; */
+                /* } */
+                insertion_point = nexthalo;
             }
+            XASSERT(i < INT_MAX,
+                    "Assigning FirstHaloInFOFgroup = %"PRId64". Must be less than %d\n",
+                    i, INT_MAX);
+
             forest[insertion_point].NextHaloInFOFgroup = i;
         }
     }
 
-    /* for(int i=0;i<nsnapshots;i++) { */
-    /*     fprintf(stderr,"scales[%04d] = %12.5lf\n", */
-    /*             i,scales[i]); */
-    /* } */
-
-    
     /* Now figure out merger tree pointers. Need to set descendant, firstprogenitor and nextprogenitor.
      */
     for(int64_t i=0;i<totnhalos;i++) {
@@ -813,46 +832,63 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
                 "Could not locate desc_snapnum. desc_snapnum = %d nsnapshots = %d \n",
                 desc_snapnum, nsnapshots);
 
-        for(int64_t k=start_scale[desc_snapnum];k<end_scale[desc_snapnum];k++) {
-            if(info[k].id != descid) {
-                continue;
-            }
-            forest[i].Descendant = k;
-            
-            //Now assign first progenitor + next progenitor 
-            if(forest[k].FirstProgenitor == -1) {
-                forest[k].FirstProgenitor = i;
-                forest[i].NextProgenitor = -1;
+        /*start_scale and end_scale are inclusive. Hence the stopping condition is "<=" rather than simply "<" */
+        int64_t desc_loc = start_scale[desc_snapnum];
+        while(desc_loc >= start_scale[desc_snapnum] && desc_loc <= end_scale[desc_snapnum] && info[desc_loc].id != descid) {
+            desc_loc++;
+        }
+        XASSERT(desc_loc >= start_scale[desc_snapnum] && desc_loc <= end_scale[desc_snapnum],
+                "Desc loc = %"PRId64" for snapnum = %d is outside range [%"PRId64", %"PRId64"]\n",
+                desc_loc, desc_snapnum, start_scale[desc_snapnum], end_scale[desc_snapnum]);
+        XASSERT(info[desc_loc].id == descid,
+                "Should have found descendant id = %"PRId64" but info[%"PRId64"]=%"PRId64" instead \n",
+                descid, desc_loc, info[desc_loc].id);
+
+        XASSERT(desc_loc < INT_MAX,
+                "desc_loc = %"PRId64" must be less than INT_MAX = %d\n",
+                desc_loc, INT_MAX);
+        
+        forest[i].Descendant = desc_loc;
+        
+        //Now assign first progenitor + next progenitor 
+        if(forest[desc_loc].FirstProgenitor == -1) {
+            forest[desc_loc].FirstProgenitor = i;
+            forest[i].NextProgenitor = -1;
+
+        } else {
+            /* The descendant halo already has progenitors. Figure out the correct
+               order -- should this halo be FirstProgenitor?
+               Not necessary but ensure nextprog are ordered by mass.
+            */
+            const int first_prog = forest[desc_loc].FirstProgenitor;
+            XASSERT(first_prog >= 0 && first_prog < totnhalos,
+                    "first_prog=%d must lie within [0, %"PRId64"\n",
+                    first_prog, totnhalos);
+            if(forest[first_prog].Mvir < forest[i].Mvir) {
+                XASSERT(i < INT_MAX,
+                        "Assigning Nextprogenitor = %"PRId64" to an int will result in garbage. INT_MAX = %d\n",
+                        i, INT_MAX);
+                forest[desc_loc].FirstProgenitor = i;
+                forest[i].NextProgenitor = first_prog;
             } else {
-                /* The descendant halo already has progenitors. Figure out the correct
-                   order -- should this halo be FirstProgenitor?
-                 */
-                const int64_t first_prog = forest[k].FirstProgenitor;
-                XASSERT(first_prog >= 0 && first_prog < totnhalos,
-                        "first_prog=%"PRId64" must lie within [0, %"PRId64"\n",
-                        first_prog, totnhalos);
-                int64_t next_prog = first_prog;
-                while(forest[next_prog].NextProgenitor != -1) {
-                    next_prog = forest[next_prog].NextProgenitor;
+                int64_t insertion_point = first_prog;
+                while(forest[insertion_point].NextProgenitor != -1) {
+                    const int64_t next_prog = forest[insertion_point].NextProgenitor;
                     XASSERT(next_prog >=0 && next_prog < totnhalos,
                             "Inserting next progenitor into invalid index. insertion_point = %"PRId64" totnhalos = %"PRId64"\n",
                             next_prog, totnhalos);
+                    
+                    /* if(forest[next_prog].Mvir < forest[i].Mvir) { */
+                    /*     forest[i].NextProgenitor = next_prog; */
+                    /*     break; */
+                    /* } */
+                    insertion_point = next_prog;
                 }
-
-                /* Now figure out where to insert the current halo in the progenitor list */
-                if(forest[first_prog].Mvir > forest[i].Mvir) {
-                    /* The original FirstProgenitor is more massive than the current halo
-                       being processed. Just append this halo index to the nextprogenitor list. 
-                     */
-                    forest[next_prog].NextProgenitor = i;
-                    forest[i].NextProgenitor = -1;//set the next progenitor of current halo to -1. (It should already have been initialized to -1)
-                } else {
-                    /* Insert this halo as first progenitor and the original first progenitor next */
-                    forest[k].FirstProgenitor = i;
-                    forest[i].NextProgenitor = first_prog;
-                }
+                XASSERT(i < INT_MAX,
+                        "Assigning Nextprogenitor = %"PRId64" to an int will result in garbage. INT_MAX = %d\n",
+                        i, INT_MAX);
+                forest[insertion_point].NextProgenitor = i;
             }
-            break;
         }
     }
 
@@ -864,7 +900,8 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
 #undef SCALE_UPID_COMPARATOR
 #undef UPID_COMPARATOR
 #undef PID_COMPARATOR    
-
+#undef ID_COMPARATOR
+    
     return;
 }
 
@@ -923,21 +960,20 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
     int64_t max_mass_fof_loc = 0;
     float max_mass_fof = forest[max_mass_fof_loc].Mvir;
     int64_t fof_id = info[max_mass_fof_loc].id;
-    for(int64_t i=0;i<last_halo_with_max_scale;i++) {
+    for(int64_t i=0;i<=last_halo_with_max_scale;i++) {
         if(forest[i].Mvir > max_mass_fof) {
             max_mass_fof_loc = i;
             max_mass_fof = forest[max_mass_fof_loc].Mvir;
             fof_id = info[max_mass_fof_loc].id;
         }
-        
     }
 
     XASSERT(max_mass_fof_loc < INT_MAX,
-            "Most massive FOF location=%"PRId64" must be representable within INT_MAX",
-            max_mass_fof_loc);
+            "Most massive FOF location=%"PRId64" must be representable within INT_MAX=%d",
+            max_mass_fof_loc, INT_MAX);
 
     int FirstHaloInFOFgroup = (int) max_mass_fof_loc;
-    for(int64_t i=0;i<last_halo_with_max_scale;i++) {
+    for(int64_t i=0;i<=last_halo_with_max_scale;i++) {
         if(i == FirstHaloInFOFgroup) {
             continue;
         }
@@ -946,7 +982,8 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
 #if 0
             fprintf(stderr,"Changed pid = -1 to pid = %"PRId64" for i=%"PRId64" FirstHaloInFOFgroup =%d last_halo_max_scale=%"PRId64"\n",
                     fof_id, i, FirstHaloInFOFgroup,last_halo_with_max_scale);
-#endif            
+#endif
+            
         }
         info[i].upid = fof_id;
     }
@@ -956,6 +993,175 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
 #undef MULTIPLE_ARRAY_EXCHANGER
 
 }
+
+void validate_fields(const int64_t totnhalos, const struct output_dtype *forest, const struct additional_info *info, const int max_snapnum)
+{
+
+    FILE *fp = my_fopen("mergertree","a+");
+    fprintf(fp,"## Index  Snap   Desc    FiProg  neprog  Fof   nexthalo  Mvir     id\n");
+
+    for(int64_t i=0;i<totnhalos;i++) {
+        XASSERT(((forest[i].Descendant == -1 && info[i].descid == -1) || (forest[i].Descendant >= 0 && forest[i].Descendant < totnhalos)),
+                "forest[%"PRId64"].Descendant = %d not in range\n",i, forest[i].Descendant);
+        XASSERT(((forest[i].FirstProgenitor == -1) || (forest[i].FirstProgenitor >= 0 && forest[i].FirstProgenitor < totnhalos)),
+                "forest[%"PRId64"].FirstProgenitor = %d not in range\n",i, forest[i].FirstProgenitor);
+        XASSERT(((forest[i].NextProgenitor == -1) || (forest[i].NextProgenitor >= 0 && forest[i].NextProgenitor < totnhalos)),
+                "forest[%"PRId64"].NextProgenitor = %d not in range\n",i, forest[i].NextProgenitor);
+        XASSERT(((forest[i].FirstHaloInFOFgroup >= 0 && forest[i].FirstHaloInFOFgroup < totnhalos)),
+                "forest[%"PRId64"].FirstHaloInFOFgroup = %d not in range\n",i, forest[i].FirstHaloInFOFgroup);
+        XASSERT(((forest[i].NextHaloInFOFgroup == -1) || (forest[i].NextHaloInFOFgroup >= 0 && forest[i].NextHaloInFOFgroup < totnhalos)),
+                "forest[%"PRId64"].NextHaloInFOFgroup = %d not in range\n",i, forest[i].NextHaloInFOFgroup);
+
+        fprintf(fp,
+                "%6"PRId64" %6d %6d  %6d %6d "
+                "%6d %8d "
+                "%8.3lf %8lld\n",
+                i,
+                forest[i].SnapNum, forest[i].Descendant, forest[i].FirstProgenitor, forest[i].NextProgenitor,
+                forest[i].FirstHaloInFOFgroup, forest[i].NextHaloInFOFgroup,
+                forest[i].Mvir, forest[i].MostBoundID);
+            
+        /* fprintf(stderr,"%12"PRId64" %12.5lf   %12d   %12"PRId64" %12"PRId64"  %12"PRId64" %14.6lf " */
+        /* /\*         /\\* "%14.6lf %14.6lf %12.5lf %12.5lf %12.5lf " *\\/ *\/ */
+        /* /\*         /\\* "%12.4lf %12.4lf %12.4lf " *\\/ *\/ */
+        /* /\*         /\\* "%12.4lf %12.4lf %12.4lf " *\\/ *\/ */
+        /* /\*         /\\* "%12.4lf %12.4lf %12d " *\\/ *\/ */
+        /* /\*         "%12d %12d %12d \n", *\/ */
+        /*         "%12d %12d \n", */
+        /*         i, */
+        /*         info[i].scale, forest[i].SnapNum, info[i].id, info[i].pid, info[i].upid, forest[i].Mvir, */
+        /* /\*         /\\* forest[i].VelDisp, forest[i].Vmax, forest[i].Pos[0], forest[i].Pos[1], forest[i].Pos[2], *\\/ *\/ */
+        /* /\*         /\\* forest[i].Vel[0], forest[i].Vel[1], forest[i].Vel[2], *\\/ *\/ */
+        /* /\*         /\\* forest[i].Spin[0], forest[i].Spin[1], forest[i].Spin[2], *\\/ *\/ */
+        /* /\*         /\\* forest[i].M_Mean200, forest[i].M_TopHat, forest[i].Len, *\\/ *\/ */
+        /* /\*         forest[i].FirstProgenitor, forest[i].NextProgenitor, forest[i].Descendant, *\/ */
+        /*         forest[i].FirstHaloInFOFgroup, forest[i].NextHaloInFOFgroup); */
+
+        XASSERT( ( ! (forest[i].SnapNum == max_snapnum && forest[i].Descendant != -1)),
+                 "Halo (forest[%"PRId64"] at last snapshot = %d has descendant = %d\n"
+                 "Assigning descendants code needs to be checked\n",
+                 i, max_snapnum, forest[i].Descendant);
+                     
+        if(forest[i].Descendant == -1) {
+            //check that nothing points to it
+            for(int64_t aa=0;aa<totnhalos;aa++) {
+                XASSERT((forest[aa].FirstProgenitor != i) ||
+                        (forest[aa].NextProgenitor  != i),
+                        "i=%"PRId64" has no descendant but is assigned as firstprog or nextprog\n"
+                        "forest[%"PRId64"].FirstProgenitor = %d "
+                        "forest[%"PRId64"].NextProgenitor = %d \n",
+                        i, aa, forest[aa].FirstProgenitor, aa, forest[aa].NextProgenitor);
+                            
+                            
+            }
+        } else {
+            //has a descendant. make sure the correct halo points to it. either as a firstprog or
+            //by following the chain of next prog.
+            //then ensure that nothing else points to it.
+            int expected_halo = forest[i].Descendant;
+            //First the basic check that the descendant id corresponds to the one in info
+            XASSERT(info[expected_halo].id == info[i].descid,
+                    "Descendant ids must match\n"
+                    "info[%d].id = %"PRId64" while info[%"PRId64"] = %"PRId64"\n",
+                    expected_halo, info[expected_halo].id, i, info[i].descid);
+                
+            if(forest[expected_halo].FirstProgenitor != i) {
+                //find the halo that points to `i'
+                expected_halo = forest[expected_halo].FirstProgenitor;
+                while(forest[expected_halo].NextProgenitor != -1 && forest[expected_halo].NextProgenitor != i) {
+                    expected_halo = forest[expected_halo].NextProgenitor;
+                    XASSERT(expected_halo >=0 && expected_halo < totnhalos,
+                            "Invalid location for the source halo that points to %"PRId64"\n"
+                            "Descendant location = %d. expected_halo = %d\n",
+                            i, forest[i].Descendant, expected_halo);
+                }
+                XASSERT(forest[expected_halo].NextProgenitor == i,
+                        "Should have found the source halo that points to %"PRId64"\n"
+                        "Descendant location = %d\n"
+                        "forest[%d].NextProgenitor, FirstProg  = %d,%d \n",
+                        i, forest[i].Descendant, expected_halo,
+                        forest[expected_halo].NextProgenitor,
+                        forest[expected_halo].FirstProgenitor);
+            } else {
+                expected_halo = forest[i].Descendant;//Just to be explicit. This line will *NOT* change the value
+            }
+
+            for(int64_t aa=0;aa<totnhalos;aa++) {
+                if(aa == expected_halo) {
+                    continue;
+                }
+
+                //NO other halo should point to i (loop flow should not reach here for expected_halo)
+                XASSERT( !  ((forest[aa].FirstProgenitor == i) ||
+                             (forest[aa].NextProgenitor == i)),
+                         "i=%"PRId64" should only be pointed to by %d\n"
+                         "BUT: forest[%"PRId64"].FirstProgenitor = %d "
+                         "forest[%"PRId64"].NextProgenitor = %d \n",
+                         i, expected_halo, aa, forest[aa].FirstProgenitor, aa, forest[aa].NextProgenitor);
+            }
+        }
+
+        /* ok now check the firsthaloinfofgroup + nexthaloinfofgroup*/
+        if(info[i].pid !=-1) {
+            continue;
+        }
+
+        //Only FOF halos will come here
+        {
+            int64_t aa = i+1;
+            const int64_t fof_id = info[i].id;
+            int64_t max_aa_inc = i;
+            while(aa < totnhalos && info[aa].pid != -1) {
+                XASSERT(forest[aa].FirstHaloInFOFgroup == i,
+                        "forest[%"PRId64"].FirstHaloInFOFgroup=%d should point to %"PRId64" as fof halo\n",
+                        aa, forest[aa].FirstHaloInFOFgroup, i);
+                XASSERT(info[aa].upid == fof_id,
+                        "info[%"PRId64"].upid = %"PRId64" instead of %"PRId64"\n",
+                        aa, info[aa].upid, fof_id);
+                if(aa > max_aa_inc) {
+                    max_aa_inc = aa;
+                }
+                aa++;
+            }
+
+            aa = i;
+            int64_t max_aa_next = i;
+            while(aa >= 0 && aa < totnhalos) {
+                XASSERT(forest[aa].FirstHaloInFOFgroup == i,
+                        "forest[%"PRId64"].FirstHaloInFOFgroup=%d should point to %"PRId64" as fof halo\n",
+                        aa, forest[aa].FirstHaloInFOFgroup, i);
+                aa = forest[aa].NextHaloInFOFgroup;
+                if(aa > max_aa_next) {
+                    max_aa_next = aa;
+                }
+            }
+
+            XASSERT(max_aa_next == max_aa_inc,
+                    "All (sub) halos should consecutive\n"
+                    "forest[%"PRId64"].FirstHaloInFOFgroup, Next = %d,%d \n"
+                    "max located via next = %"PRId64" max located by increment = %"PRId64"\n",
+                    i,
+                    forest[i].FirstHaloInFOFgroup, forest[i].NextHaloInFOFgroup,
+                    max_aa_next, max_aa_inc);
+
+            for(int64_t bb=0;bb<totnhalos;bb++) {
+                if(bb >= i || bb < max_aa_next) {
+                    continue;
+                }
+
+                XASSERT(forest[bb].FirstHaloInFOFgroup != i,
+                        "NO other halo should claim %"PRId64" as the FOF halo\n",
+                        bb);
+                XASSERT(forest[bb].NextHaloInFOFgroup != i,
+                        "NO other halo should point to %"PRId64" as the next halo in FOF group\n",
+                        bb);
+            }
+        }
+    }
+
+    fclose(fp);
+}
+    
 
 int main(int argc, char **argv)
 {
@@ -1000,6 +1206,13 @@ int main(int argc, char **argv)
         exit(EXIT_FAILURE);
     }
     const float inv_part_mass = 1.0/part_mass;
+
+    {
+        const size_t expected_struct_size = 104;
+        XASSERT(sizeof(struct output_dtype) == expected_struct_size,
+                "sizeof output struct must exactly equal %zu bytes\n",
+                expected_struct_size);
+    }
     
     struct timeval tstart, tend;
     gettimeofday(&tstart, NULL);
@@ -1177,11 +1390,13 @@ int main(int argc, char **argv)
     }
 
     
-    /* Now assign all trees in the same forest to the same file
+    /* Now assign all trees in the same forest to the same file. 
        The output fileids goes into output_locations (which is otherwise a copy of locations).
+
+       Both locations and output_locations are sorted by ForestID, FileID, Offset (in that order).
      */
     struct forest_info *forest_info = assign_trees_in_forest_to_same_file(ntrees, locations, output_locations, nfiles);
-    const int64_t nforests = forest_info->nforests;
+    int64_t nforests = forest_info->nforests;//should really be a const but I am changing nforests later for debugging. 
     /* Fix the output filenames in output_locations */
     for(int64_t i=0;i<ntrees;i++) {
         const int64_t out_fileid = output_locations[i].fileid;
@@ -1201,12 +1416,18 @@ int main(int argc, char **argv)
     int *nhalos_written_per_file   = my_calloc(sizeof(*nhalos_written_per_file), nfiles);
     off_t *offsets_per_file        = my_calloc(sizeof(*offsets_per_file), nfiles);
     /* write the place-holders. Should I use posix_fallocate instead? */
+
+/* #define RESET_FORESTS  (3) */
+    
     for(int i=0;i<nfiles;i++) {
         FILE *fp = tree_outputs[i];
         rewind(fp);
         const int zero = 0;
         my_fwrite(&zero, sizeof(int), 1, fp);//totnforests in this file 
-        my_fwrite(&zero, sizeof(int), 1, fp);//totnhalos in this file 
+        my_fwrite(&zero, sizeof(int), 1, fp);//totnhalos in this file
+#ifdef RESET_FORESTS        
+        totnforests_per_file[i] = RESET_FORESTS;
+#endif        
         for(int64_t j=0;j<totnforests_per_file[i];j++) {
             my_fwrite(&zero, sizeof(int), 1, fp);//one zero for each forest in this file. will contain the number of halos in forest.
         }
@@ -1215,6 +1436,10 @@ int main(int argc, char **argv)
         offsets_per_file[i] = ftello(fp);
     }
     
+#ifdef RESET_FORESTS
+    nforests = RESET_FORESTS;
+#endif    
+
     fprintf(stderr, ANSI_COLOR_MAGENTA"Writing out (nforests=%"PRId64") in LHALOTREE format...."ANSI_COLOR_RESET"\n", nforests);
     interrupted=0;
     init_my_progressbar(nforests, &interrupted);
@@ -1224,10 +1449,19 @@ int main(int argc, char **argv)
     struct output_dtype *forest  = my_malloc(sizeof(*forest), nhalos_allocated);
     struct additional_info *info = my_malloc(sizeof(*info), nhalos_allocated);
     int64_t tree_index = 0;
+    my_snprintf(buffer, MAXLEN, "%s/output_order_forests.dat", output_dir);
+    FILE *output_order_locations = my_fopen(buffer, "w");
+    fprintf(output_order_locations,"#TreeRootID ForestID\n");
+
+    int64_t total_num_halos_written_all_files = 0;
     for(int64_t i=0;i<nforests;i++) {
         my_progressbar(i, &interrupted);
         int64_t forest_offset = 0;
+        int64_t totnhalos = 0;
         for(int64_t j=0;j<forest_info->num_trees[i];j++) {
+            fprintf(output_order_locations,"%"PRId64" %"PRId64"\n",
+                    locations[tree_index].tree_root, locations[tree_index].forestid);
+
             int64_t fileid = locations[tree_index].fileid;
             const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest, forest_offset, &info,
 #ifdef USE_FGETS
@@ -1241,9 +1475,11 @@ int main(int argc, char **argv)
 
             tree_index++;
             forest_offset += nhalos;
+            totnhalos += nhalos;
+            total_num_halos_written_all_files += nhalos;
         }
 
-        const int64_t totnhalos = forest_offset;
+        /* const int64_t totnhalos = forest_offset; */
         const int64_t out_fileid = forest_info->fileid[i];
         const int forestindex_thisfile = nforests_written_per_file[out_fileid];
         nhalos_per_forest_per_file[out_fileid][forestindex_thisfile] = totnhalos;
@@ -1258,47 +1494,23 @@ int main(int argc, char **argv)
         const int max_snapnum = fix_upid(totnhalos, forest, info, &interrupted);
         
         /* Now the entire tree is loaded in. Assign the mergertree indices */
-        /* fprintf(stderr,"ASSIGNING MERGERTREE INDICES\n"); */
-
         assign_mergertree_indices(totnhalos, forest, info, max_snapnum);
 
         const int64_t num_bytes = sizeof(struct output_dtype) * totnhalos;
-        forest_info->num_bytes[i]  = num_bytes;
+        forest_info->num_binary_bytes[i]  = num_bytes;
         forest_info->offset[i]    = offsets_per_file[out_fileid];
         forest_info->num_halos[i]  = totnhalos;
         offsets_per_file[out_fileid] += num_bytes;
         
-#if 0
-        for(int64_t kk=0;kk<totnhalos;kk++) {
-            XASSERT((forest[kk].Descendant == -1) || (forest[kk].Descendant >= 0 && forest[kk].Descendant < totnhalos),
-                    "forest[%"PRId64"].Descendant = %d not in range\n",kk, forest[kk].Descendant);
-            XASSERT((forest[kk].FirstProgenitor == -1) || (forest[kk].FirstProgenitor >= 0 && forest[kk].FirstProgenitor < totnhalos),
-                    "forest[%"PRId64"].FirstProgenitor = %d not in range\n",kk, forest[kk].FirstProgenitor);
-            XASSERT((forest[kk].NextProgenitor == -1) || (forest[kk].NextProgenitor >= 0 && forest[kk].NextProgenitor < totnhalos),
-                    "forest[%"PRId64"].NextProgenitor = %d not in range\n",kk, forest[kk].NextProgenitor);
-            XASSERT((forest[kk].FirstHaloInFOFgroup >= 0 && forest[kk].FirstHaloInFOFgroup < totnhalos),
-                    "forest[%"PRId64"].FirstHaloInFOFgroup = %d not in range\n",kk, forest[kk].FirstHaloInFOFgroup);
-            XASSERT((forest[kk].NextHaloInFOFgroup == -1) || (forest[kk].NextHaloInFOFgroup >= 0 && forest[kk].NextHaloInFOFgroup < totnhalos),
-                    "forest[%"PRId64"].NextHaloInFOFgroup = %d not in range\n",kk, forest[kk].NextHaloInFOFgroup);
-
-            fprintf(stderr," %12.5lf   %12d   %12"PRId64" %12"PRId64"  %12"PRId64" %14.6lf "
-                    "%14.6lf %14.6lf %12.5lf %12.5lf %12.5lf "
-                    "%12.4lf %12.4lf %12.4lf "
-                    "%12.4lf %12.4lf %12.4lf "
-                    "%12.4lf %12.4lf %12d \n",
-                    info[kk].scale, forest[kk].SnapNum, info[kk].id, info[kk].pid, info[kk].upid, forest[kk].Mvir,
-                    forest[kk].VelDisp, forest[kk].Vmax, forest[kk].Pos[0], forest[kk].Pos[1], forest[kk].Pos[2],
-                    forest[kk].Vel[0], forest[kk].Vel[1], forest[kk].Vel[2],
-                    forest[kk].Spin[0], forest[kk].Spin[1], forest[kk].Spin[2],
-                    forest[kk].M_Mean200, forest[kk].M_TopHat, forest[kk].Len);
-        }
+#ifdef RESET_FORESTS
+        validate_fields(totnhalos, forest, info, max_snapnum);
 #endif
-        
-        /* fprintf(stderr,"WRiting forest with %"PRId64" halos...\n",totnhalos); */
+        /* write out the forest in binary */
         my_fwrite(forest, sizeof(struct output_dtype), totnhalos, tree_outputs[out_fileid]);
-        /* fprintf(stderr,"WRiting forest with %"PRId64" halos......done\n",totnhalos); */
+
     }
-    
+    fclose(output_order_locations);
+
     for(int i=0;i<nfiles;i++) {
         FILE *fp = tree_outputs[i];
         fflush(fp);
@@ -1347,21 +1559,19 @@ int main(int argc, char **argv)
     {
         my_snprintf(buffer, MAXLEN, "%s/lhalotree_offsets.dat", output_dir);
         FILE *fp = my_fopen(buffer,"w");
-        fprintf(fp,"# ForestID   FileID   Filename   Offset  NumBytes   NumHalos \n");
-        fprintf(fp,"##############################################################################################################\n");
-        fprintf(fp,"#         ForestID   FileID       Filename                  Offset               NumBytes          NumHalos   \n");
-        fprintf(fp,"##############################################################################################################\n");
+        fprintf(fp,"#######################################################################################################################################\n");
+        fprintf(fp,"#         ForestID     FileID         Filename                  Offset            BinaryBytes         AsciiBytes            NumHalos   \n");
+        fprintf(fp,"#######################################################################################################################################\n");
 
         for(int64_t i=0;i<forest_info->nforests;i++) {
-            fprintf(fp,"%18"PRId64" %10"PRId64"  %s   %18"PRId64"  %18"PRId64"  %18"PRId64"\n",
+            fprintf(fp,"%18"PRId64" %10"PRId64"      %s   %18"PRId64"  %18"PRId64"  %18"PRId64"    %18"PRId64"\n",
                     forest_info->forestid[i],forest_info->fileid[i], forest_info->filename[i],
-                    forest_info->offset[i], forest_info->num_bytes[i], forest_info->num_halos[i]);
+                    forest_info->offset[i], forest_info->num_binary_bytes[i], forest_info->num_ascii_bytes[i],forest_info->num_halos[i]);
         }
         fclose(fp);
     }
 
     
-
     /* close open file pointers + free memory for file pointers */
     for(int i=0;i<nfiles;i++) {
         fclose(tree_inputs[i]);
@@ -1382,7 +1592,8 @@ int main(int argc, char **argv)
     free(forest_info->fileid);
     free(forest_info->num_trees);
     free(forest_info->num_halos);
-    free(forest_info->num_bytes);
+    free(forest_info->num_ascii_bytes);
+    free(forest_info->num_binary_bytes);
     free(forest_info->offset);
     free(forest_info->filename);
     free(forest_info);
@@ -1399,8 +1610,8 @@ int main(int argc, char **argv)
     free(forest);free(info);
     
     gettimeofday(&tend, NULL);
-    fprintf(stderr,"\n\nWrote out %"PRId64" trees in %"PRId64" forests in the LHALOTree format. Time taken = %0.2g seconds\n\n",
-            ntrees, nforests, ADD_DIFF_TIME(tstart, tend));
+    fprintf(stderr,"\n\nWrote out %"PRId64" halos (across all files) contained in %"PRId64" trees in %"PRId64" forests in the LHALOTree format. Time taken = %0.2g seconds\n\n",
+            total_num_halos_written_all_files, ntrees, nforests, ADD_DIFF_TIME(tstart, tend));
     
     return EXIT_SUCCESS;
 }
