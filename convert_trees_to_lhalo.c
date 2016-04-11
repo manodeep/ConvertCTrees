@@ -599,6 +599,13 @@ int64_t compute_numbytes(FILE *fp, const int64_t start)
     return off - start; /* Or should there be a -1?*/
 }    
 
+
+int64_t compute_numbytes_with_off(const int64_t off, const int64_t start)
+{
+    return off - start; /* Or should there be a -1?*/
+}    
+
+
 int64_t write_forests_and_locations(const char *filename, const int64_t ntrees, const struct locations *locations)
 {
     int64_t bytes = 0;
@@ -1235,11 +1242,12 @@ int main(int argc, char **argv)
             ntrees, ntrees_loc);    
 
     /* the following function will sort locations and forests based on tree root id*/
+    fprintf(stderr, ANSI_COLOR_MAGENTA"Assigning forest ids...."ANSI_COLOR_RESET"\n");
     assign_forest_ids(ntrees, locations, forests, tree_roots);
+    fprintf(stderr, ANSI_COLOR_GREEN"Assigning forest ids.......done"ANSI_COLOR_RESET"\n\n");
     
     /* Forests are now contained inside locations -> free the pointers */
     free(forests);free(tree_roots);
-
 
     FILE **tree_outputs = my_malloc(sizeof(FILE *), nfiles);
     FILE **tree_inputs  = my_malloc(sizeof(FILE *), nfiles);
@@ -1259,6 +1267,7 @@ int main(int argc, char **argv)
                 my_snprintf(buffer,MAXLEN,"%s/tree_%d_%d_%d.dat", input_dir, i, j, k);
                 int id = id = i*BOX_DIVISIONS*BOX_DIVISIONS + j*BOX_DIVISIONS + k;
                 tree_inputs[id]  = my_fopen(buffer, "r");
+                assert(setvbuf(tree_inputs[id], NULL, _IONBF, 0) == 0);
                 my_fseek(tree_inputs[id],0L, SEEK_END);
                 inp_file_sizes[id] = ftello(tree_inputs[id]);
                 rewind(tree_inputs[id]);
@@ -1277,7 +1286,9 @@ int main(int argc, char **argv)
 
 
     /* the following function will sort locations based on 1) filename 2) offsets */
+    fprintf(stderr, ANSI_COLOR_MAGENTA"Sorting locations based on file offsets...."ANSI_COLOR_RESET"\n");
     sort_locations_file_offset(ntrees, locations);
+    fprintf(stderr, ANSI_COLOR_GREEN"Sorting locations based on file offsets........done"ANSI_COLOR_RESET"\n\n");
 
     /* holder to check later that bytes have been assigned */
     for(int64_t i=0;i<ntrees;i++) {
@@ -1299,6 +1310,7 @@ int main(int argc, char **argv)
     */
     const int64_t guess_max_linesize = 20 + 1 + 6 + 1;
     fprintf(stderr, ANSI_COLOR_MAGENTA"Calculating the number of bytes for each tree...."ANSI_COLOR_RESET"\n");
+
     /* setup the progressbar */
     int interrupted=0;
     init_my_progressbar(ntrees, &interrupted);
@@ -1310,8 +1322,7 @@ int main(int argc, char **argv)
         /* Are we starting on a new file ?*/
         if(start_fileid != fileid) {
             /* fill out the bytes for the last tree in the previous file */
-            my_fseek(tree_inputs[start_fileid], 0L, SEEK_END);
-            const int64_t num_bytes = compute_numbytes(tree_inputs[start_fileid], start);
+            const int64_t num_bytes = compute_numbytes_with_off(inp_file_sizes[start_fileid], start);
             locations[i-1].bytes = num_bytes;
             output_locations[i-1].bytes = num_bytes;
 

@@ -276,14 +276,11 @@ void* my_malloc(size_t size,int64_t N)
 {
   void *x = NULL;
   x = malloc(N*size);
-  size_t megabytes = (N*size) >> 20;
   if (x==NULL){
     fprintf(stderr,"malloc for %"PRId64" elements with %zu bytes failed..aborting\n",N,size);
     exit(EXIT_FAILURE);
-  } else {
-    if(megabytes > 100)
-      fprintf(stderr,"\n Successfully allocated  %"PRId64" elements with total size %zu (MB) \n",N, megabytes);
   }
+  
   return x;
 
 }
