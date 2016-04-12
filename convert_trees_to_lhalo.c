@@ -18,7 +18,7 @@
 
 /* #define FIELD_CHECKER(field, Nmax, fieldname)   (XASSERT((field == -1) || (field >=0 && field < Nmax), fieldname " = %"PRId64" must be " */
 
-static int CTREES_UPID_BUG = 0;
+static int CTREES_UPID_FEATURE = 0;
 
 /* Make sure LOCATIONS_FILENAME is a multiple of 8 */
 #define LOCATIONS_FILENAME_SIZE  (32)
@@ -60,43 +60,73 @@ void usage(int argc, char **argv)
             argv[0]);
 }    
 
-int64_t read_forests(const char *filename, int64_t **f, int64_t **t)
+int64_t read_forests(const char *filename, const char *output_dir, int64_t **f, int64_t **t)
 {
-    char buffer[MAXBUFSIZE];
-    const char comment = '#';
-    /* By passing the comment character, getnumlines
-       will return the actual number of lines, ignoring
-       the first header line. 
-     */
-
-    const int64_t ntrees = getnumlines(filename, comment);
-    *f = my_malloc(sizeof(int64_t), ntrees);
-    *t = my_malloc(sizeof(int64_t), ntrees);
-
-    int64_t *forests    = *f;
-    int64_t *tree_roots = *t;
-    
-    int64_t ntrees_found = 0;
-    FILE *fp = my_fopen(filename, "r");
-    while(fgets(buffer, MAXBUFSIZE, fp) != NULL) {
-        if(buffer[0] == comment) {
-            continue;
-        } else {
-            const int nitems_expected = 2;
-            XASSERT(ntrees_found < ntrees,
-                    "ntrees=%"PRId64" should be less than ntrees_found=%"PRId64"\n", ntrees, ntrees_found);            
-            int nitems = sscanf(buffer, "%"SCNd64" %"SCNd64, &(tree_roots[ntrees_found]), &(forests[ntrees_found]));
-            XASSERT(nitems == nitems_expected,
-                    "Expected to parse %d long integers but found `%s' in the buffer. nitems = %d \n",
-                    nitems_expected, buffer, nitems);
-            ntrees_found++;
+    char forest_bin_file[MAXLEN];
+    my_snprintf(forest_bin_file, MAXLEN, "%s/forests.bin", output_dir);
+    FILE *forests_fp = fopen(forest_bin_file,"r");
+    int64_t ntrees;
+    if(forests_fp == NULL) {
+        char buffer[MAXBUFSIZE];
+        const char comment = '#';
+        /* By passing the comment character, getnumlines
+           will return the actual number of lines, ignoring
+           the first header line. 
+        */
+        
+        ntrees = getnumlines(filename, comment);
+        *f = my_malloc(sizeof(int64_t), ntrees);
+        *t = my_malloc(sizeof(int64_t), ntrees);
+        
+        int64_t *forests    = *f;
+        int64_t *tree_roots = *t;
+        
+        int64_t ntrees_found = 0;
+        FILE *fp = my_fopen(filename, "r");
+        while(fgets(buffer, MAXBUFSIZE, fp) != NULL) {
+            if(buffer[0] == comment) {
+                continue;
+            } else {
+                const int nitems_expected = 2;
+                XASSERT(ntrees_found < ntrees,
+                        "ntrees=%"PRId64" should be less than ntrees_found=%"PRId64"\n", ntrees, ntrees_found);            
+                int nitems = sscanf(buffer, "%"SCNd64" %"SCNd64, &(tree_roots[ntrees_found]), &(forests[ntrees_found]));
+                XASSERT(nitems == nitems_expected,
+                        "Expected to parse %d long integers but found `%s' in the buffer. nitems = %d \n",
+                        nitems_expected, buffer, nitems);
+                ntrees_found++;
+            }
         }
-    }
-    XASSERT(ntrees == ntrees_found,
-            "ntrees=%"PRId64" should be equal to ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
-    fclose(fp);
+        XASSERT(ntrees == ntrees_found,
+                "ntrees=%"PRId64" should be equal to ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
+        fclose(fp);
 
-    return ntrees_found;
+        /* Output the forests in binary */
+        forests_fp = fopen(forest_bin_file,"w");
+        size_t dummy = sizeof(*forests);
+        my_fwrite(&dummy, sizeof(dummy), 1, forests_fp);
+        my_fwrite(&ntrees, sizeof(ntrees), 1, forests_fp);
+        my_fwrite(forests, sizeof(*forests), ntrees, forests_fp);
+        my_fwrite(tree_roots, sizeof(*tree_roots), ntrees, forests_fp);
+        fclose(forests_fp);
+    } else {
+        /*Found the binary forests file -> read it in */
+        size_t dummy;
+        my_fread(&dummy, sizeof(dummy), 1, forests_fp);
+        my_fread(&ntrees, sizeof(ntrees), 1, forests_fp);
+        assert(ntrees >= 0);
+        *f = my_malloc(sizeof(int64_t), ntrees);
+        *t = my_malloc(sizeof(int64_t), ntrees);
+        int64_t *forests    = *f;
+        int64_t *tree_roots = *t;
+        assert(dummy == sizeof(*forests));
+
+        my_fread(forests, sizeof(*forests), ntrees, forests_fp);
+        my_fread(tree_roots, sizeof(*tree_roots), ntrees, forests_fp);
+        fclose(forests_fp);
+    }
+        
+    return ntrees;
 }    
 
 
@@ -592,19 +622,17 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
 }    
 
 
-
-int64_t compute_numbytes(FILE *fp, const int64_t start)
-{
-    const int64_t off = ftello(fp);
-    return off - start; /* Or should there be a -1?*/
-}    
-
-
 int64_t compute_numbytes_with_off(const int64_t off, const int64_t start)
 {
     return off - start; /* Or should there be a -1?*/
 }    
 
+
+int64_t compute_numbytes(FILE *fp, const int64_t start)
+{
+    const int64_t off = ftello(fp);
+    return compute_numbytes_with_off(off, start);
+}    
 
 int64_t write_forests_and_locations(const char *filename, const int64_t ntrees, const struct locations *locations)
 {
@@ -688,11 +716,10 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
                 "could not locate fof halo for i = %"PRId64" id = %"PRId64" upid = %"PRId64" loc=%"PRId64"\n",
                 i, info[i].id, upid, loc);
         const int64_t new_upid = info[loc].id;
-        if(new_upid != upid && CTREES_UPID_BUG == 0) {
-            fprintf(stderr, ANSI_COLOR_RED "Fixing upid for i=%"PRId64" original upid =%"PRId64" new fof upid = %"PRId64 ANSI_COLOR_RESET"\n"
-                    ANSI_COLOR_BLUE"Email Peter Behroozi (pbehroozi@gmail.com) about bug in Consistent Trees code"ANSI_COLOR_RESET"\n",
+        if(new_upid != upid && CTREES_UPID_FEATURE == 0) {
+            fprintf(stderr, ANSI_COLOR_RED "Fixing upid for i=%"PRId64" original upid =%"PRId64" new fof upid = %"PRId64 ANSI_COLOR_RESET"\n",
                     i, upid, new_upid);
-            CTREES_UPID_BUG = 1;
+            CTREES_UPID_FEATURE = 1;
             *interrupted = 1;
         }
         info[i].upid = new_upid;
@@ -944,6 +971,10 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
             }
     SGLIB_ARRAY_HEAP_SORT(struct additional_info, info, totnhalos, SCALE_ID_COMPARATOR, MULTIPLE_ARRAY_EXCHANGER);
 
+#undef ID_COMPARATOR
+#undef SCALE_ID_COMPARATOR
+#undef MULTIPLE_ARRAY_EXCHANGER    
+
     float max_scale = info[0].scale;
     int64_t last_halo_with_max_scale = 0;
     int64_t num_fofs_last_scale = 0;
@@ -994,11 +1025,6 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
         }
         info[i].upid = fof_id;
     }
-
-#undef ID_COMPARATOR
-#undef SCALE_ID_COMPARATOR
-#undef MULTIPLE_ARRAY_EXCHANGER
-
 }
 
 void validate_fields(const int64_t totnhalos, const struct output_dtype *forest, const struct additional_info *info, const int max_snapnum)
@@ -1221,15 +1247,17 @@ int main(int argc, char **argv)
                 expected_struct_size);
     }
     
-    struct timeval tstart, tend;
+    struct timeval tstart, tend, t0, t1;
     gettimeofday(&tstart, NULL);
     char locations_filename[MAXLEN], forests_filename[MAXLEN];
     int64_t *forests=NULL, *tree_roots=NULL;
     my_snprintf(locations_filename, MAXLEN, "%s/locations.dat", input_dir);
     my_snprintf(forests_filename, MAXLEN, "%s/forests.list", input_dir);
+    gettimeofday(&t0,NULL);
     fprintf(stderr, ANSI_COLOR_MAGENTA"Reading forests...."ANSI_COLOR_RESET"\n");
-    const int64_t ntrees = read_forests(forests_filename, &forests, &tree_roots);
-    fprintf(stderr, ANSI_COLOR_GREEN"Reading forests......done"ANSI_COLOR_RESET"\n\n");
+    const int64_t ntrees = read_forests(forests_filename, output_dir, &forests, &tree_roots);
+    gettimeofday(&t1,NULL);
+    fprintf(stderr, ANSI_COLOR_GREEN"Reading forests......done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ADD_DIFF_TIME(t0, t1));
     /* fprintf(stderr, "Number of trees = %"PRId64"\n\n",ntrees); */
 
     struct locations *locations = my_malloc(sizeof(*locations), ntrees);
@@ -1267,7 +1295,7 @@ int main(int argc, char **argv)
                 my_snprintf(buffer,MAXLEN,"%s/tree_%d_%d_%d.dat", input_dir, i, j, k);
                 int id = id = i*BOX_DIVISIONS*BOX_DIVISIONS + j*BOX_DIVISIONS + k;
                 tree_inputs[id]  = my_fopen(buffer, "r");
-                assert(setvbuf(tree_inputs[id], NULL, _IONBF, 0) == 0);
+                /* assert(setvbuf(tree_inputs[id], NULL, _IONBF, 0) == 0); */
                 my_fseek(tree_inputs[id],0L, SEEK_END);
                 inp_file_sizes[id] = ftello(tree_inputs[id]);
                 rewind(tree_inputs[id]);
@@ -1290,115 +1318,184 @@ int main(int argc, char **argv)
     sort_locations_file_offset(ntrees, locations);
     fprintf(stderr, ANSI_COLOR_GREEN"Sorting locations based on file offsets........done"ANSI_COLOR_RESET"\n\n");
 
+    int interrupted=0;//for progressbar
+ 
     /* holder to check later that bytes have been assigned */
     for(int64_t i=0;i<ntrees;i++) {
         locations[i].bytes = -1;/* Make sure bytes is a signed type! */
     }
-
     /* Create a copy of current locations */    
-    struct locations *output_locations = my_malloc(sizeof(*output_locations), ntrees);
-    assert(sizeof(*output_locations) == sizeof(*locations) && "locations struct is varying in size! The sky is falling!!");
-    memcpy(output_locations, locations, sizeof(*locations) * ntrees);
+    struct locations *output_locations;
+    char locations_bin_filename[MAXLEN];
+    my_snprintf(locations_bin_filename,MAXLEN,"%s/locations.bin", output_dir);    
+    FILE *locations_binary_fp = fopen(locations_bin_filename,"r");
 
-    /* figure out the byte size for each tree */
-    int64_t start = locations[0].offset;
-    int64_t start_fileid = locations[0].fileid;
-
-    /* tree_roots are 64 bit integers -> max digits in decimal = log10(2^64) < 20.
-       Add 1 char for +-, in case consistent tree changes. and then strlen('#tree ')
-       and the previous \n. I need to read up to previous newline.
-    */
-    const int64_t guess_max_linesize = 20 + 1 + 6 + 1;
-    fprintf(stderr, ANSI_COLOR_MAGENTA"Calculating the number of bytes for each tree...."ANSI_COLOR_RESET"\n");
-
-    /* setup the progressbar */
-    int interrupted=0;
-    init_my_progressbar(ntrees, &interrupted);
-
-    for(int64_t i=1;i<=ntrees-1;i++) {
-        my_progressbar(i, &interrupted);
-        const int64_t fileid = locations[i].fileid;
+    //Is there a previous run that I could read in?
+    if(locations_binary_fp == NULL) {
+        output_locations = my_malloc(sizeof(*output_locations), ntrees);
+        assert(sizeof(*output_locations) == sizeof(*locations) && "locations struct is varying in size! The sky is falling!!");
+        memcpy(output_locations, locations, sizeof(*locations) * ntrees);
         
-        /* Are we starting on a new file ?*/
-        if(start_fileid != fileid) {
-            /* fill out the bytes for the last tree in the previous file */
-            const int64_t num_bytes = compute_numbytes_with_off(inp_file_sizes[start_fileid], start);
-            locations[i-1].bytes = num_bytes;
-            output_locations[i-1].bytes = num_bytes;
-
-            /* now we reset the start fields */
-            start = locations[i].offset;
-            start_fileid = locations[i].fileid;
-            continue;
-        }
-        const int64_t current_offset_guess = locations[i].offset - guess_max_linesize;
-        my_fseek(tree_inputs[fileid], current_offset_guess, SEEK_SET);
-        while(1) {
-            const int a = fgetc(tree_inputs[fileid]);
-            if(a == EOF) {
-                fprintf(stderr,"Encountered EOF while looking for end of current tree\n");
-                exit(EXIT_FAILURE);
-            }
-            const unsigned char c = (unsigned char) a;
-            if(c == '\n') {
-                const int64_t num_bytes = compute_numbytes(tree_inputs[start_fileid], start);
+        /* figure out the byte size for each tree */
+        int64_t start = locations[0].offset;
+        int64_t start_fileid = locations[0].fileid;
+        
+        /* tree_roots are 64 bit integers -> max digits in decimal = log10(2^64) < 20.
+           Add 1 char for +-, in case consistent tree changes. and then strlen('#tree ')
+           and the previous \n. I need to read up to previous newline.
+        */
+        const int64_t guess_max_linesize = 20 + 1 + 6 + 1;
+        fprintf(stderr, ANSI_COLOR_MAGENTA"Calculating the number of bytes for each tree...."ANSI_COLOR_RESET"\n");
+        /* setup the progressbar */
+        interrupted=0;
+        init_my_progressbar(ntrees, &interrupted);
+        
+        for(int64_t i=1;i<=ntrees-1;i++) {
+            my_progressbar(i, &interrupted);
+            const int64_t fileid = locations[i].fileid;
+            
+            /* Are we starting on a new file ?*/
+            if(start_fileid != fileid) {
+                /* fill out the bytes for the last tree in the previous file */
+                const int64_t num_bytes = compute_numbytes_with_off(inp_file_sizes[start_fileid], start);
                 locations[i-1].bytes = num_bytes;
                 output_locations[i-1].bytes = num_bytes;
-                /* fprintf(stderr,"%"PRId64"\n",num_bytes); */
+                
+                /* now we reset the start fields */
                 start = locations[i].offset;
-                break;
+                start_fileid = locations[i].fileid;
+                continue;
             }
+            const int64_t current_offset_guess = locations[i].offset - guess_max_linesize;
+            
+#if 1
+            my_fseek(tree_inputs[fileid], current_offset_guess, SEEK_SET);
+            while(1) {
+                const int a = fgetc(tree_inputs[fileid]);
+                if(a == EOF) {
+                    fprintf(stderr,"Encountered EOF while looking for end of current tree\n");
+                    exit(EXIT_FAILURE);
+                }
+                const unsigned char c = (unsigned char) a;
+                if(c == '\n') {
+                    //Why is this start_fileid rather than fileid?
+                    const int64_t num_bytes = compute_numbytes(tree_inputs[start_fileid], start);
+                    locations[i-1].bytes = num_bytes;
+                    output_locations[i-1].bytes = num_bytes;
+                    /* fprintf(stderr,"%"PRId64"\n",num_bytes); */
+                    start = locations[i].offset;
+                    break;
+                }
+            }
+            
+#else
+            assert(MAXLEN > guess_max_linesize);
+            int64_t curr_offset = current_offset_guess;
+            int64_t bytes_this_read = (int64_t) pread(tree_inputs_fd[start_fileid], buffer, guess_max_linesize, current_offset_guess);
+            assert(bytes_this_read == guess_max_linesize);
+            {
+                int found = 0;
+                for(int64_t ii=0;ii<bytes_this_read; ii++) {
+                    curr_offset++;
+                    if(buffer[ii] == '\n'){
+                        found = 1;
+                        const int64_t num_bytes = compute_numbytes_with_off(curr_offset, start);
+                        locations[i-1].bytes = num_bytes;
+                        output_locations[i-1].bytes = num_bytes;
+                        start = locations[i].offset;
+                        break;
+                    } 
+                }
+                assert(found == 1);
+            }
+#endif
         }
-    }
+    
 
-    /* fill out the bytes for the last tree */
-    {
-        start = locations[ntrees-1].offset;
-        const int64_t fileid = locations[ntrees-1].fileid;
-        my_fseek(tree_inputs[fileid], 0L, SEEK_END);
-        const int64_t num_bytes = compute_numbytes(tree_inputs[fileid], start);
-        locations[ntrees-1].bytes = num_bytes;
-        output_locations[ntrees-1].bytes = num_bytes;
-    }
-    finish_myprogressbar(&interrupted);        
-    fprintf(stderr, ANSI_COLOR_GREEN"Calculating the number of bytes for each tree.....done"ANSI_COLOR_RESET"\n\n");
-
-    /* Check that all the previous computations with locations have been copied to output_locations */
-    for(int64_t i=ntrees-1;i>=0;i--) {
-        XASSERT(locations[i].bytes > 0,
-                "locations[%"PRId64"].bytes = %"PRId64" should be positive\n",
-                i,locations[i].bytes);
-
-        XASSERT(output_locations[i].bytes == locations[i].bytes,
-                "locations[%"PRId64"].bytes = %"PRId64" should be equal output_locations->bytes = %"PRId64"\n",
-                i,locations[i].bytes,output_locations[i].bytes);
-        XASSERT(strncmp(output_locations[i].filename, locations[i].filename, LOCATIONS_FILENAME_SIZE) == 0,
-                "output_locations[%"PRId64"].filename = %s should equal locations filename = %s\n",
-                i, output_locations[i].filename, locations[i].filename);
-
+    
+        /* fill out the bytes for the last tree */
+        {
+            start = locations[ntrees-1].offset;
+            const int64_t fileid = locations[ntrees-1].fileid;
+            
+#if 0        
+            my_fseek(tree_inputs[fileid], 0L, SEEK_END);
+            const int64_t num_bytes = compute_numbytes(tree_inputs[fileid], start);
+#else
+            const int64_t num_bytes = compute_numbytes_with_off(inp_file_sizes[fileid], start);
+#endif        
+            
+            locations[ntrees-1].bytes = num_bytes;
+            output_locations[ntrees-1].bytes = num_bytes;
+        }
+        finish_myprogressbar(&interrupted);        
+        fprintf(stderr, ANSI_COLOR_GREEN"Calculating the number of bytes for each tree.....done"ANSI_COLOR_RESET"\n\n");
         
-        assert(output_locations[i].forestid == locations[i].forestid);
-        assert(output_locations[i].tree_root == locations[i].tree_root);
-        assert(output_locations[i].fileid == locations[i].fileid);
-        assert(output_locations[i].offset == locations[i].offset);
-        assert(output_locations[i].bytes == locations[i].bytes);
+        /* Check that all the previous computations with locations have been copied to output_locations */
+        for(int64_t i=ntrees-1;i>=0;i--) {
+            XASSERT(locations[i].bytes > 0,
+                    "locations[%"PRId64"].bytes = %"PRId64" should be positive\n",
+                    i,locations[i].bytes);
+            
+            XASSERT(output_locations[i].bytes == locations[i].bytes,
+                    "locations[%"PRId64"].bytes = %"PRId64" should be equal output_locations->bytes = %"PRId64"\n",
+                i,locations[i].bytes,output_locations[i].bytes);
+            XASSERT(strncmp(output_locations[i].filename, locations[i].filename, LOCATIONS_FILENAME_SIZE) == 0,
+                    "output_locations[%"PRId64"].filename = %s should equal locations filename = %s\n",
+                    i, output_locations[i].filename, locations[i].filename);
+
+            
+            assert(output_locations[i].forestid == locations[i].forestid);
+            assert(output_locations[i].tree_root == locations[i].tree_root);
+            assert(output_locations[i].fileid == locations[i].fileid);
+            assert(output_locations[i].offset == locations[i].offset);
+            assert(output_locations[i].bytes == locations[i].bytes);
+        }
+        
+        /* Check that the preceeding bytes computation is correct */
+        {
+            int64_t *total_tree_bytes = my_calloc(sizeof(*total_tree_bytes), nfiles);
+            for(int64_t i=0;i<ntrees;i++) {
+                /* add the number of bytes for tree in each file */
+                total_tree_bytes[locations[i].fileid] += locations[i].bytes;
+            }
+            
+            for(int i=0;i<nfiles;i++) {
+                XASSERT(total_tree_bytes[i] < inp_file_sizes[i],
+                        "Bytes in tree = %"PRId64" must be smaller than file size = %"PRId64"\n",
+                        total_tree_bytes[i], inp_file_sizes[i]);
+            }
+            free(total_tree_bytes);
+            
+            /* Output this locations data */
+            assert(locations_binary_fp == NULL);
+            locations_binary_fp = my_fopen(locations_bin_filename, "w");
+            size_t dummy = sizeof(*locations);
+            my_fwrite(&dummy, sizeof(dummy), 1, locations_binary_fp);
+            my_fwrite(&ntrees, sizeof(ntrees), 1, locations_binary_fp);
+            my_fwrite(locations, sizeof(*locations), ntrees, locations_binary_fp);//totnforests in this file 
+            fclose(locations_binary_fp);
+        }
+    } else {
+        // Found the locations.bin file -> read it in and avoid computing the number of bytes
+        gettimeofday(&t0, NULL);
+        fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA"..."ANSI_COLOR_RESET"\n",locations_bin_filename);
+        size_t dummy;
+        int64_t ntrees_in_file;
+        my_fread(&dummy, sizeof(dummy), 1, locations_binary_fp);
+        assert(dummy == sizeof(*locations));
+        my_fread(&ntrees_in_file, sizeof(ntrees_in_file), 1, locations_binary_fp);
+        assert(ntrees_in_file == ntrees);
+        my_fread(locations, sizeof(*locations), ntrees_in_file, locations_binary_fp);
+        fclose(locations_binary_fp);//
+        output_locations = my_malloc(sizeof(*output_locations), ntrees);
+        assert(sizeof(*output_locations) == sizeof(*locations) && "locations struct is varying in size! The sky is falling!!");
+        memcpy(output_locations, locations, sizeof(*locations) * ntrees);
+        gettimeofday(&t1, NULL);
+        fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA".....done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n",
+                locations_bin_filename, ADD_DIFF_TIME(t0, t1));
     }
     
-    /* Check that the preceeding bytes computation is correct */
-    {
-        int64_t *total_tree_bytes = my_calloc(sizeof(*total_tree_bytes), nfiles);
-        for(int64_t i=0;i<ntrees;i++) {
-            /* add the number of bytes for tree in each file */
-            total_tree_bytes[locations[i].fileid] += locations[i].bytes;
-        }
-        
-        for(int i=0;i<nfiles;i++) {
-            XASSERT(total_tree_bytes[i] < inp_file_sizes[i],
-                    "Bytes in tree = %"PRId64" must be smaller than file size = %"PRId64"\n",
-                    total_tree_bytes[i], inp_file_sizes[i]);
-        }
-        free(total_tree_bytes);
-    }
 
     
     /* Now assign all trees in the same forest to the same file. 
@@ -1469,10 +1566,11 @@ int main(int argc, char **argv)
         my_progressbar(i, &interrupted);
         int64_t forest_offset = 0;
         int64_t totnhalos = 0;
+        fprintf(stdout, "%"PRId64" %"PRId64" ", i, forest_info->num_trees[i]);
         for(int64_t j=0;j<forest_info->num_trees[i];j++) {
             fprintf(output_order_locations,"%"PRId64" %"PRId64"\n",
                     locations[tree_index].tree_root, locations[tree_index].forestid);
-
+            fflush(output_order_locations);
             int64_t fileid = locations[tree_index].fileid;
             const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest, forest_offset, &info,
 #ifdef USE_FGETS
@@ -1489,8 +1587,9 @@ int main(int argc, char **argv)
             totnhalos += nhalos;
             total_num_halos_written_all_files += nhalos;
         }
-
-        /* const int64_t totnhalos = forest_offset; */
+        fprintf(stdout, " ..done loading trees\n");
+        fflush(stdout);
+        
         const int64_t out_fileid = forest_info->fileid[i];
         const int forestindex_thisfile = nforests_written_per_file[out_fileid];
         nhalos_per_forest_per_file[out_fileid][forestindex_thisfile] = totnhalos;
@@ -1499,13 +1598,19 @@ int main(int argc, char **argv)
         nhalos_written_per_file[out_fileid] += totnhalos;
 
         /* Fix flybys -> multiple roots at z=0 must be joined such that only one root remains */
+        fprintf(stdout,"Fixing flybys ...\n");
         fix_flybys(totnhalos, forest, info);
+        fprintf(stdout,"Fixing flybys ......done\n");
 
         /* Entire tree is loaded in. Fix upid's*/
+        fprintf(stdout,"Fixing upid ...\n");
         const int max_snapnum = fix_upid(totnhalos, forest, info, &interrupted);
+        fprintf(stdout,"Fixing upid ......done\n");
         
         /* Now the entire tree is loaded in. Assign the mergertree indices */
+        fprintf(stdout,"Assigning mergertree indices...\n");
         assign_mergertree_indices(totnhalos, forest, info, max_snapnum);
+        fprintf(stdout,"Assigning mergertree indices......done\n");
 
         const int64_t num_bytes = sizeof(struct output_dtype) * totnhalos;
         forest_info->num_binary_bytes[i]  = num_bytes;
@@ -1517,8 +1622,8 @@ int main(int argc, char **argv)
         validate_fields(totnhalos, forest, info, max_snapnum);
 #endif
         /* write out the forest in binary */
-        my_fwrite(forest, sizeof(struct output_dtype), totnhalos, tree_outputs[out_fileid]);
-
+        my_fwrite(forest, sizeof(*forest), totnhalos, tree_outputs[out_fileid]);
+        
     }
     fclose(output_order_locations);
 
