@@ -1,12 +1,17 @@
 #OPT += -DUSE_FGETS
 #OPT += -USE_MPI
+OPT += -DUSE_STRINGPARSE
 
 include common.mk
 
 target := convert_trees_to_lhalo
-SRC1   := convert_trees_to_lhalo.c utils.c progressbar.c 
+SRC1   := convert_trees_to_lhalo.c utils.c progressbar.c
+INCL   := output_datatype.h utils.h progressbar.h stringparse.h check_syscalls.h
+ifeq (USE_STRINGPARSE,$(findstring USE_STRINGPARSE,$(OPT)))
+  SRC1 += stringparse.c check_syscalls.c
+  INCL += stringparse.h check_syscalls.h strtonum.c
+endif
 OBJS1  := $(SRC1:.c=.o)
-INCL   := output_datatype.h utils.h progressbar.h 
 
 SRC2  := tests/compare_two_lhalotree.c utils.c 
 OBJS2 := $(SRC2:.c=.o)

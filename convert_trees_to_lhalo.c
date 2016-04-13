@@ -12,6 +12,11 @@
 
 #include "output_datatype.h"
 
+#ifdef USE_STRINGPARSE
+#include "stringparse.h"
+#include "check_syscalls.h"
+#endif
+
 #ifndef ADD_DIFF_TIME
 #define ADD_DIFF_TIME(tbegin, tend)  ((tend.tv_sec - tstart.tv_sec) + 1e-6*(tend.tv_usec - tstart.tv_usec))
 #endif
@@ -19,6 +24,8 @@
 /* #define FIELD_CHECKER(field, Nmax, fieldname)   (XASSERT((field == -1) || (field >=0 && field < Nmax), fieldname " = %"PRId64" must be " */
 
 static int CTREES_UPID_FEATURE = 0;
+/* static int64_t calldepth = 0; */
+/* static int num_lines_printed=0; */
 
 /* Make sure LOCATIONS_FILENAME is a multiple of 8 */
 #define LOCATIONS_FILENAME_SIZE  (32)
@@ -504,8 +511,10 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             struct output_dtype *forest = *source_forest + forest_offset;
             struct additional_info *info = *source_info + forest_offset;
             const int nitems_expected = 21;
+
+#ifndef USE_STRINGPARSE
             const int nitems = sscanf(&buffer[start_pos],
-                                      " %lf %"SCNd64" %lf %"SCNd64" %*d "
+                                      "%lf %"SCNd64" %lf %"SCNd64" %*d "
                                       "%"SCNd64" %"SCNd64" %*d %*d "
 
                                       /*the first two fields are sam_mvir and mvir. one of the two need to be assigned to Mvir.
@@ -516,7 +525,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                                       "%f %f %f "
                                       "%f %f %f "
                                       "%*f %*d %*d %*d %*d %d "
-                                      "%*d %*d %*d %*f %*f %f %f ",
+                                      "%*d %*d %*f %*f %f %f ",
                                       &info[nhalos].scale,
                                       &info[nhalos].id,
                                       &info[nhalos].desc_scale,
@@ -538,6 +547,81 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                                       &forest[nhalos].SnapNum,
 
                                       &forest[nhalos].M_Mean200, &forest[nhalos].M_TopHat);
+#else
+            buffer[end_pos] = '\n';
+            //Use Peter Behroozi's custom string parser.
+            SHORT_PARSETYPE;
+
+#define NUM_INPUTS 38
+            enum short_parsetype stypes[NUM_INPUTS] =  {
+                LF, LD, LF, LD, K,
+                LD, LD, K, K,
+                K, F, K, K, F,
+                K, K, F,
+                F, F, F,
+                F, F, F,
+                F, F, F,
+                K, K, K, K, K, D,
+                K, K, K, K, F, F,
+            };
+            enum parsetype types[NUM_INPUTS];
+            for (int ii=0; ii<NUM_INPUTS; ii++) types[ii] = stypes[ii];
+            
+            void *data[NUM_INPUTS] = {&(info[nhalos].scale),
+                                      &(info[nhalos].id),
+                                      &(info[nhalos].desc_scale),
+                                      &(info[nhalos].descid),
+                                      NULL,
+                                      
+                                      &(info[nhalos].pid),
+                                      &(info[nhalos].upid),
+                                      NULL,
+                                      NULL,
+                                      
+                                      NULL,
+                                      &(forest[nhalos].Mvir),
+                                      NULL,
+                                      NULL,
+                                      &(forest[nhalos].VelDisp),
+                                      
+                                      NULL,
+                                      NULL,
+                                      &(forest[nhalos].Vmax),
+                                      
+                                      &(forest[nhalos].Pos[0]), &(forest[nhalos].Pos[1]), &(forest[nhalos].Pos[2]),
+                                      
+                                      &(forest[nhalos].Vel[0]), &(forest[nhalos].Vel[1]), &(forest[nhalos].Vel[2]),
+                                      
+                                      &(forest[nhalos].Spin[0]), &(forest[nhalos].Spin[1]), &(forest[nhalos].Spin[2]),
+                                      
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      &(forest[nhalos].SnapNum),
+                                      
+                                      NULL,
+                                      NULL,
+                                      NULL,
+                                      NULL, 
+                                      &(forest[nhalos].M_Mean200),
+                                      &(forest[nhalos].M_TopHat),
+            };
+            //parse string
+
+            int nitems = stringparse(&buffer[start_pos], data, (enum parsetype *)types, NUM_INPUTS);
+            if (nitems == NUM_INPUTS) {
+                nitems = nitems_expected;
+            }
+            buffer[end_pos] = '\0';
+#undef NUM_INPUTS
+            
+            
+
+#endif            
+
+            
                                       
             if(nitems == nitems_expected) {
                 /* correctly parsed a halo. Fix things into LHalotree convention */
@@ -565,41 +649,51 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                 forest[nhalos].NextProgenitor = -1;
                 forest[nhalos].FirstHaloInFOFgroup = -1;
                 forest[nhalos].NextHaloInFOFgroup = -1;
+                /* if(info[nhalos].id == 395319) { */
+                /*     fprintf(stderr,"info[%"PRId64"].id = %"PRId64". pid = %"PRId64" upid = %"PRId64"\n", */
+                /*             nhalos, info[nhalos].id, info[nhalos].pid, info[nhalos].upid); */
+                /*     fprintf(stderr,"##buffer = `%s'###\n",&buffer[start_pos]); */
+                /*     fprintf(stderr,"M200 = %lf Mtophat = %lf\n", forest[nhalos].M_Mean200, forest[nhalos].M_TopHat); */
+                /* } */
+                
 
-#if 0                
-                fprintf(stderr,"MY PARSING produces: "
-                        "%lf %"PRId64" %lf %"PRId64" "
-                        "%"PRId64" %"PRId64" "
-                        "%f %f "
-                        "%f "
-                        "%f %f %f "
-                        "%f %f %f "
-                        "%f %f %f "
-                        "%d "
-                        "%f %f \n\n",
-                        info[nhalos].scale,
-                        info[nhalos].id,
-                        info[nhalos].desc_scale,
-                        info[nhalos].descid,
-                        
-                        info[nhalos].pid,
-                        info[nhalos].upid,
+#if 0
+                if(num_lines_printed < 10000) {
+                    fprintf(stdout,"MY PARSING produces: "
+                            "%lf %"PRId64" %lf %"PRId64" "
+                            "%"PRId64" %"PRId64" "
+                            "%f %f "
+                            "%f "
+                            "%f %f %f "
+                            "%f %f %f "
+                            "%f %f %f "
+                            "%d "
+                            "%f %f \n",
+                            info[nhalos].scale,
+                            info[nhalos].id,
+                            info[nhalos].desc_scale,
+                            info[nhalos].descid,
+                            
+                            info[nhalos].pid,
+                            info[nhalos].upid,
+                            
+                            forest[nhalos].Mvir,
+                            forest[nhalos].VelDisp,
+                            
+                            forest[nhalos].Vmax,
 
-                        forest[nhalos].Mvir,
-                        forest[nhalos].VelDisp,
-                        
-                        forest[nhalos].Vmax,
-
-                        forest[nhalos].Pos[0], forest[nhalos].Pos[1], forest[nhalos].Pos[2],
-                        forest[nhalos].Vel[0], forest[nhalos].Vel[1], forest[nhalos].Vel[2],
-                        
-                        forest[nhalos].Spin[0], forest[nhalos].Spin[1], forest[nhalos].Spin[2],
-                        
-                        forest[nhalos].SnapNum,
-
-                        forest[nhalos].M_Mean200, forest[nhalos].M_TopHat);
+                            forest[nhalos].Pos[0], forest[nhalos].Pos[1], forest[nhalos].Pos[2],
+                            forest[nhalos].Vel[0], forest[nhalos].Vel[1], forest[nhalos].Vel[2],
+                            
+                            forest[nhalos].Spin[0], forest[nhalos].Spin[1], forest[nhalos].Spin[2],
+                            
+                            forest[nhalos].SnapNum,
+                            
+                            forest[nhalos].M_Mean200, forest[nhalos].M_TopHat);
+                    num_lines_printed++;
+                }
 #endif 
-
+                    
 #ifndef USE_FGETS
                 offset += (end_pos - start_pos + 1);
                 bytes_read += (end_pos - start_pos + 1);
@@ -651,10 +745,27 @@ int64_t write_forests_and_locations(const char *filename, const int64_t ntrees, 
     return bytes;
 }
 
-int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *info, const int start_loc, const int64_t upid)
+int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *info, const int start_loc, const int64_t upid, int verbose, int64_t calldepth)
 {
     int64_t loc = -1;
+    assert(info[start_loc].pid != -1);
+    if(calldepth >= 3) {
+        verbose = 1;
+    }
+    assert(calldepth <= 30);
     while(start_loc >= 0 && start_loc < totnhalos && info[start_loc].pid != -1) {
+
+        /* if(info[start_loc].id == 3058456321) { */
+        /*     fprintf(stderr,"info[%d].id = 3058456321. pid = %"PRId64" upid = %"PRId64"\n", */
+        /*             start_loc, info[start_loc].pid, info[start_loc].upid); */
+        /* } */
+
+
+        if(verbose == 1) {
+            fprintf(stderr,"start_loc = %d id = %"PRId64" pid = %"PRId64"\n", start_loc, info[start_loc].id, info[start_loc].pid);
+            fprintf(stderr,"scale = %lf pid = %"PRId64" upid = %"PRId64"\n",
+                    info[start_loc].scale, info[start_loc].pid, info[start_loc].upid);
+        }
         if(upid > info[start_loc].id) {
             for(int64_t k=start_loc+1;k<totnhalos;k++) {
                 if(info[k].id == upid) {
@@ -677,7 +788,13 @@ int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *inf
         if(info[loc].pid == -1) {
             return loc;
         } else {
-            return find_fof_halo(totnhalos, info, loc, info[loc].upid);
+            if(verbose == 1) {
+                fprintf(stderr,"calling find_fof_halo again with loc =%"PRId64" (int) loc = %d start_loc was =%d\n",loc, (int) loc, start_loc);
+                fprintf(stderr,"scale = %lf id = %"PRId64" pid = %"PRId64" upid = %"PRId64" calldepth=%"PRId64"\n",
+                        info[loc].scale, info[loc].id, info[loc].pid, info[loc].upid,calldepth);
+            }
+            calldepth++;
+            return find_fof_halo(totnhalos, info, (int) loc, info[loc].upid, verbose, calldepth);
         }
     }
 
@@ -685,10 +802,13 @@ int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *inf
 }
 
 
-int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, int *interrupted)
+int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, int *interrupted, const int verbose)
 {
 
     int max_snapnum = -1;
+    /* if(verbose == 1) { */
+    /*     fprintf(stderr,"sorting for totnhalos = %"PRId64"\n", totnhalos); */
+    /* } */
     /*First sort everything on ID */
 #define ID_COMPARATOR(x, y)         ((x.id > y.id ? 1:(x.id < y.id ? -1:0)))
 #define SCALE_ID_COMPARATOR(x,y)    ((x.scale > y.scale ? -1:(x.scale < y.scale ? 1:ID_COMPARATOR(x, y))) )
@@ -697,9 +817,16 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
         SGLIB_ARRAY_ELEMENTS_EXCHANGER(struct additional_info, info, i, j) \
             }
     SGLIB_ARRAY_HEAP_SORT(struct additional_info, info, totnhalos, SCALE_ID_COMPARATOR, MULTIPLE_ARRAY_EXCHANGER);
+    /* if(verbose == 1) { */
+    /*     fprintf(stderr,"sorting for totnhalos = %"PRId64"..done\n\n", totnhalos); */
+    /* } */
 
     /* Change upid to id, so we can sort the fof's and subs to be contiguous */
     for(int64_t i=0;i<totnhalos;i++) {
+        /* if(info[i].id == 3058456321) { */
+        /*     fprintf(stderr,"In %s>  i = %"PRId64" id = 3058456321 pid = %"PRId64" upid = %"PRId64"\n", */
+        /*             __FUNCTION__, i, info[i].pid, info[i].upid); */
+        /* } */
         info[i].upid = (info[i].pid == -1) ? info[i].id:info[i].upid;
         if(forest[i].SnapNum > max_snapnum) {
             max_snapnum = forest[i].SnapNum;
@@ -707,11 +834,13 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
         if(info[i].pid == -1) {
             continue;
         }
-
+        
         /* Only (sub)subhalos should reach here */
         /*Check if upid points to host halo with pid == -1*/
         const int64_t upid = info[i].upid;
-        const int64_t loc = find_fof_halo(totnhalos, info, i, upid);
+        int64_t calldepth=0;
+        /* fprintf(stderr,"CALLING FIND FOF HALO with i = %"PRId64" id = %"PRId64" upid = %"PRId64"\n", i, info[i].id, upid); */
+        const int64_t loc = find_fof_halo(totnhalos, info, i, upid, verbose, calldepth);
         XASSERT(loc >=0 && loc < totnhalos,
                 "could not locate fof halo for i = %"PRId64" id = %"PRId64" upid = %"PRId64" loc=%"PRId64"\n",
                 i, info[i].id, upid, loc);
@@ -961,7 +1090,7 @@ int64_t ** calculate_forest_info_per_file(const int64_t nfiles, int64_t *totnfor
 }
     
         
-void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info)
+void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, int verbose)
 {
 #define ID_COMPARATOR(x, y)         ((x.id > y.id ? 1:(x.id < y.id ? -1:0)))
 #define SCALE_ID_COMPARATOR(x,y)    ((x.scale > y.scale ? -1:(x.scale < y.scale ? 1:ID_COMPARATOR(x, y))) )
@@ -999,7 +1128,7 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
     float max_mass_fof = forest[max_mass_fof_loc].Mvir;
     int64_t fof_id = info[max_mass_fof_loc].id;
     for(int64_t i=0;i<=last_halo_with_max_scale;i++) {
-        if(forest[i].Mvir > max_mass_fof) {
+        if(forest[i].Mvir > max_mass_fof && info[i].pid == -1) {
             max_mass_fof_loc = i;
             max_mass_fof = forest[max_mass_fof_loc].Mvir;
             fof_id = info[max_mass_fof_loc].id;
@@ -1017,11 +1146,10 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
         }
         if(info[i].pid == -1) {
             info[i].pid = fof_id;
-#if 0
-            fprintf(stderr,"Changed pid = -1 to pid = %"PRId64" for i=%"PRId64" FirstHaloInFOFgroup =%d last_halo_max_scale=%"PRId64"\n",
-                    fof_id, i, FirstHaloInFOFgroup,last_halo_with_max_scale);
-#endif
-            
+            if(verbose == 1) {
+                fprintf(stderr,"id = %"PRId64" changed pid = -1 to pid = %"PRId64" for i=%"PRId64" FirstHaloInFOFgroup =%d last_halo_max_scale=%"PRId64"\n",
+                        info[i].id, fof_id, i, FirstHaloInFOFgroup,last_halo_with_max_scale);
+            }
         }
         info[i].upid = fof_id;
     }
@@ -1199,7 +1327,8 @@ void validate_fields(const int64_t totnhalos, const struct output_dtype *forest,
 int main(int argc, char **argv)
 {
     char *input_dir, *output_dir;
-    double part_mass = 0.0f;
+    double part_mass = 0.0;
+    char buffer[MAXLEN];
     if(argc != 4) {
         usage(argc, argv);
         return EXIT_FAILURE;
@@ -1257,22 +1386,25 @@ int main(int argc, char **argv)
     fprintf(stderr, ANSI_COLOR_MAGENTA"Reading forests...."ANSI_COLOR_RESET"\n");
     const int64_t ntrees = read_forests(forests_filename, output_dir, &forests, &tree_roots);
     gettimeofday(&t1,NULL);
-    fprintf(stderr, ANSI_COLOR_GREEN"Reading forests......done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ADD_DIFF_TIME(t0, t1));
-    /* fprintf(stderr, "Number of trees = %"PRId64"\n\n",ntrees); */
+    fprintf(stderr, ANSI_COLOR_GREEN"Reading forests......done. Ntrees = %"PRId64". Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ntrees, ADD_DIFF_TIME(t0, t1));
 
     struct locations *locations = my_malloc(sizeof(*locations), ntrees);
     int nfiles = 0, BOX_DIVISIONS=0;
+    gettimeofday(&t0,NULL);
     fprintf(stderr, ANSI_COLOR_MAGENTA"Reading locations...."ANSI_COLOR_RESET"\n");
     const int64_t ntrees_loc = read_locations(locations_filename, ntrees, locations, &nfiles, &BOX_DIVISIONS);
-    fprintf(stderr, ANSI_COLOR_GREEN"Reading locations......done"ANSI_COLOR_RESET"\n\n");
+    gettimeofday(&t1,NULL);
+    fprintf(stderr, ANSI_COLOR_GREEN"Reading locations......done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ADD_DIFF_TIME(t0, t1));
     XASSERT(ntrees == ntrees_loc,
             "ntrees=%"PRId64" should be equal to ntrees_loc=%"PRId64"\n",
             ntrees, ntrees_loc);    
 
     /* the following function will sort locations and forests based on tree root id*/
     fprintf(stderr, ANSI_COLOR_MAGENTA"Assigning forest ids...."ANSI_COLOR_RESET"\n");
+    gettimeofday(&t0,NULL);
     assign_forest_ids(ntrees, locations, forests, tree_roots);
-    fprintf(stderr, ANSI_COLOR_GREEN"Assigning forest ids.......done"ANSI_COLOR_RESET"\n\n");
+    gettimeofday(&t1,NULL);
+    fprintf(stderr, ANSI_COLOR_GREEN"Assigning forest ids.......done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ADD_DIFF_TIME(t0, t1));
     
     /* Forests are now contained inside locations -> free the pointers */
     free(forests);free(tree_roots);
@@ -1288,7 +1420,6 @@ int main(int argc, char **argv)
 
     int64_t *tree_counts = my_calloc(sizeof(*tree_counts), nfiles);
     int64_t *inp_file_sizes = my_calloc(sizeof(*inp_file_sizes), nfiles);
-    char buffer[MAXLEN];
     for (int i=0; i<BOX_DIVISIONS; i++) {
         for (int j=0; j<BOX_DIVISIONS; j++) {
             for(int k=0; k<BOX_DIVISIONS; k++) {
@@ -1566,11 +1697,11 @@ int main(int argc, char **argv)
         my_progressbar(i, &interrupted);
         int64_t forest_offset = 0;
         int64_t totnhalos = 0;
-        fprintf(stdout, "%"PRId64" %"PRId64" ", i, forest_info->num_trees[i]);
+        /* fprintf(stdout, "%"PRId64" %"PRId64" ", i, forest_info->num_trees[i]); */
         for(int64_t j=0;j<forest_info->num_trees[i];j++) {
             fprintf(output_order_locations,"%"PRId64" %"PRId64"\n",
                     locations[tree_index].tree_root, locations[tree_index].forestid);
-            fflush(output_order_locations);
+            /* fflush(output_order_locations); */
             int64_t fileid = locations[tree_index].fileid;
             const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest, forest_offset, &info,
 #ifdef USE_FGETS
@@ -1587,8 +1718,8 @@ int main(int argc, char **argv)
             totnhalos += nhalos;
             total_num_halos_written_all_files += nhalos;
         }
-        fprintf(stdout, " ..done loading trees\n");
-        fflush(stdout);
+        /* fprintf(stdout, " ..done loading trees\n"); */
+        /* fflush(stdout); */
         
         const int64_t out_fileid = forest_info->fileid[i];
         const int forestindex_thisfile = nforests_written_per_file[out_fileid];
@@ -1596,21 +1727,29 @@ int main(int argc, char **argv)
         totnhalos_per_file[out_fileid] += totnhalos;
         nforests_written_per_file[out_fileid]++;
         nhalos_written_per_file[out_fileid] += totnhalos;
+        /* const int verbose = (i == 8780) ? 1:0; */
+        int verbose = 0;
 
         /* Fix flybys -> multiple roots at z=0 must be joined such that only one root remains */
-        fprintf(stdout,"Fixing flybys ...\n");
-        fix_flybys(totnhalos, forest, info);
-        fprintf(stdout,"Fixing flybys ......done\n");
+        /* fprintf(stdout,"Fixing flybys ...\n"); */
+        /* fflush(stdout); */
+        fix_flybys(totnhalos, forest, info, verbose);
+        /* fprintf(stdout,"Fixing flybys ......done\n"); */
+        /* fflush(stdout); */
 
         /* Entire tree is loaded in. Fix upid's*/
-        fprintf(stdout,"Fixing upid ...\n");
-        const int max_snapnum = fix_upid(totnhalos, forest, info, &interrupted);
-        fprintf(stdout,"Fixing upid ......done\n");
+        /* fprintf(stdout,"Fixing upid ...\n"); */
+        /* fflush(stdout); */
+        const int max_snapnum = fix_upid(totnhalos, forest, info, &interrupted, verbose);
+        /* fprintf(stdout,"Fixing upid ......done\n"); */
+        /* fflush(stdout); */
         
         /* Now the entire tree is loaded in. Assign the mergertree indices */
-        fprintf(stdout,"Assigning mergertree indices...\n");
+        /* fprintf(stdout,"Assigning mergertree indices...\n"); */
+        /* fflush(stdout); */
         assign_mergertree_indices(totnhalos, forest, info, max_snapnum);
-        fprintf(stdout,"Assigning mergertree indices......done\n");
+        /* fprintf(stdout,"Assigning mergertree indices......done\n"); */
+        /* fflush(stdout); */
 
         const int64_t num_bytes = sizeof(struct output_dtype) * totnhalos;
         forest_info->num_binary_bytes[i]  = num_bytes;

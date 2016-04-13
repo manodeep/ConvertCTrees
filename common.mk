@@ -6,30 +6,19 @@ CC:=mpicc
 endif
 
 #### Add any compiler specific flags you want
-CFLAGS:=
+CFLAGS:=-ggdb 
 
 #### Add any compiler specific link flags you want
 CLINK:=
 
+### Add include paths here
 INCLUDE:=
 
 ### The POSIX_SOURCE flag is required to get the definition of strtok_r
-CFLAGS += -Wsign-compare -Wall -Wextra -Wshadow -Wpadded -Wunused -std=c99 -g -m64 -fPIC  -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_BSD_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE=200809L -D_SVID_SOURCE -D_DARWIN_C_SOURCE -O3 #-Ofast
+CFLAGS += -Wsign-compare -Wall -Wextra -Wshadow -Wpadded -Wunused -std=c99 -g -m64 -fPIC  -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_BSD_SOURCE -D_POSIX_SOURCE -D_POSIX_C_SOURCE=200809L -D_SVID_SOURCE -D_DARWIN_C_SOURCE -O3 -Ofast
 GSL_CFLAGS := $(shell gsl-config --cflags) 
 GSL_LIBDIR := $(shell gsl-config --prefix)/lib
 GSL_LINK   := $(shell gsl-config --libs) -Xlinker -rpath -Xlinker $(GSL_LIBDIR)
-
-ifneq (USE_OMP,$(findstring USE_OMP,$(OPT)))
-  ifneq (clang,$(findstring clang,$(CC)))
-     $(warning Recommended compiler for a serial build is clang)
-  endif
-endif
-
-ifeq (OUTPUT_RPAVG,$(findstring OUTPUT_RPAVG,$(OPT)))
-  ifneq (DOUBLE_PREC,$(findstring DOUBLE_PREC,$(OPT)))
-    $(error DOUBLE_PREC must be enabled with OUTPUT_RPAVG -- loss of precision will give you incorrect results for the outer bins (>=20-30 million pairs))
-  endif
-endif
 
 ifneq (DOUBLE_PREC,$(findstring DOUBLE_PREC,$(OPT)))
 	VECTOR_TYPE:=float
@@ -48,7 +37,8 @@ else
 
   ### compiler specific flags for gcc
   ifeq (gcc,$(findstring gcc,$(CC)))
-		CFLAGS += -ftree-vectorize -flto -funroll-loops #-ftree-vectorizer-verbose=6 -fopt-info-vec-missed #-fprofile-use -fprofile-correction 
+		CFLAGS += -ftree-vectorize -flto -funroll-loops #-ftree-vectorizer-verbose=6 -fopt-info-vec-missed #-fprofile-use -fprofile-correction
+        CLINK += -flto
     ifeq (USE_OMP,$(findstring USE_OMP,$(OPT)))
 			CFLAGS += -fopenmp
 			CLINK  += -fopenmp
@@ -75,8 +65,8 @@ else
   endif
 
   #### common options for gcc and clang
-  CFLAGS  += -march=native
-	CFLAGS  += -Wformat=2  -Wpacked  -Wnested-externs -Wpointer-arith  -Wredundant-decls  -Wfloat-equal -Wcast-qual  
+  CFLAGS  += -march=native -fno-strict-aliasing
+  CFLAGS  += -Wformat=2  -Wpacked  -Wnested-externs -Wpointer-arith  -Wredundant-decls  -Wfloat-equal -Wcast-qual  
   CFLAGS  +=  -Wcast-align #-Wmissing-declarations #-Wmissing-prototypes
   CFLAGS  += -Wnested-externs -Wstrict-prototypes  #-D_POSIX_C_SOURCE=2 -Wpadded -Wconversion
   CLINK += -lm
