@@ -649,7 +649,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                 forest[nhalos].NextProgenitor = -1;
                 forest[nhalos].FirstHaloInFOFgroup = -1;
                 forest[nhalos].NextHaloInFOFgroup = -1;
-                /* if(info[nhalos].id == 395319) { */
+                /* if(info[nhalos].id == 3058982278 || info[nhalos].id == 3058982280) { */
                 /*     fprintf(stderr,"info[%"PRId64"].id = %"PRId64". pid = %"PRId64" upid = %"PRId64"\n", */
                 /*             nhalos, info[nhalos].id, info[nhalos].pid, info[nhalos].upid); */
                 /*     fprintf(stderr,"##buffer = `%s'###\n",&buffer[start_pos]); */
@@ -761,11 +761,11 @@ int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *inf
         /* } */
 
 
-        if(verbose == 1) {
-            fprintf(stderr,"start_loc = %d id = %"PRId64" pid = %"PRId64"\n", start_loc, info[start_loc].id, info[start_loc].pid);
-            fprintf(stderr,"scale = %lf pid = %"PRId64" upid = %"PRId64"\n",
-                    info[start_loc].scale, info[start_loc].pid, info[start_loc].upid);
-        }
+        /* if(verbose == 1) { */
+        /*     fprintf(stderr,"start_loc = %d id = %"PRId64" pid = %"PRId64"\n", start_loc, info[start_loc].id, info[start_loc].pid); */
+        /*     fprintf(stderr,"scale = %lf pid = %"PRId64" upid = %"PRId64"\n", */
+        /*             info[start_loc].scale, info[start_loc].pid, info[start_loc].upid); */
+        /* } */
         if(upid > info[start_loc].id) {
             for(int64_t k=start_loc+1;k<totnhalos;k++) {
                 if(info[k].id == upid) {
@@ -788,11 +788,11 @@ int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *inf
         if(info[loc].pid == -1) {
             return loc;
         } else {
-            if(verbose == 1) {
-                fprintf(stderr,"calling find_fof_halo again with loc =%"PRId64" (int) loc = %d start_loc was =%d\n",loc, (int) loc, start_loc);
-                fprintf(stderr,"scale = %lf id = %"PRId64" pid = %"PRId64" upid = %"PRId64" calldepth=%"PRId64"\n",
-                        info[loc].scale, info[loc].id, info[loc].pid, info[loc].upid,calldepth);
-            }
+            /* if(verbose == 1) { */
+            /*     fprintf(stderr,"calling find_fof_halo again with loc =%"PRId64" (int) loc = %d start_loc was =%d\n",loc, (int) loc, start_loc); */
+            /*     fprintf(stderr,"scale = %lf id = %"PRId64" pid = %"PRId64" upid = %"PRId64" calldepth=%"PRId64"\n", */
+            /*             info[loc].scale, info[loc].id, info[loc].pid, info[loc].upid,calldepth); */
+            /* } */
             calldepth++;
             return find_fof_halo(totnhalos, info, (int) loc, info[loc].upid, verbose, calldepth);
         }
@@ -1124,9 +1124,9 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
         return;
     }
     
-    int64_t max_mass_fof_loc = 0;
-    float max_mass_fof = forest[max_mass_fof_loc].Mvir;
-    int64_t fof_id = info[max_mass_fof_loc].id;
+    int64_t max_mass_fof_loc = -1;
+    float max_mass_fof = -1.0f;
+    int64_t fof_id = -1;
     for(int64_t i=0;i<=last_halo_with_max_scale;i++) {
         if(forest[i].Mvir > max_mass_fof && info[i].pid == -1) {
             max_mass_fof_loc = i;
@@ -1135,6 +1135,8 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
         }
     }
 
+    XASSERT(fof_id != -1,
+            "There must be at least one FOF halo.");
     XASSERT(max_mass_fof_loc < INT_MAX,
             "Most massive FOF location=%"PRId64" must be representable within INT_MAX=%d",
             max_mass_fof_loc, INT_MAX);
