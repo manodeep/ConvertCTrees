@@ -4,7 +4,7 @@
 
 Converts Consistent Tree Output into LHaloTree format. *Written in C and probaly only works on Linux. Might depend on Linux kernel version*
 
-__UNDER ACTIVE DEVELOPEMENT. DO NOT USE__
+__Not fully debugged but seems to work__
 
 
 
