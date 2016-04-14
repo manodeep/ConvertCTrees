@@ -621,77 +621,81 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
 
 #endif            
 
+            XASSERT(nitems == nitems_expected,
+                    ANSI_COLOR_RED"could not parse buffer = `%s' correctly. expected = %d found = %d\n"
+                    "start_pos = %"PRId64" end_pos = %"PRId64"\n"
+                    "Try deleting the locations.bin and forests.bin files in the output directory and re-running the code\n",
+                    &buffer[start_pos], nitems_expected, nitems,start_pos, end_pos);
             
                                       
-            if(nitems == nitems_expected) {
-                /* correctly parsed a halo. Fix things into LHalotree convention */
-                const float inv_halo_mass = 1.0f/forest[nhalos].Mvir;
-                for(int k=0;k<3;k++) {
-                    forest[nhalos].Spin[k] *= inv_halo_mass;
-                }
-                /* Convert masses to 10^10 Msun/h */
-                forest[nhalos].Mvir  *= 1e-10;
-                forest[nhalos].M_Mean200 *= 1e-10;
-                forest[nhalos].M_TopHat *= 1e-10;
+            /* correctly parsed a halo. Fix things into LHalotree convention */
+            const float inv_halo_mass = 1.0f/forest[nhalos].Mvir;
+            for(int k=0;k<3;k++) {
+                forest[nhalos].Spin[k] *= inv_halo_mass;
+            }
+            /* Convert masses to 10^10 Msun/h */
+            forest[nhalos].Mvir  *= 1e-10;
+            forest[nhalos].M_Mean200 *= 1e-10;
+            forest[nhalos].M_TopHat *= 1e-10;
 
-                /* Calculate the (approx.) number of particles in this halo */
-                forest[nhalos].Len   = (int) roundf(forest[nhalos].Mvir * inv_part_mass);
-
-                /* Initialize other fields to indicate they are not populated */
-                forest[nhalos].FileNr = -1;
-                forest[nhalos].SubhaloIndex = (int) (forest_offset + nhalos);
-                forest[nhalos].SubHalfMass  = -1.0f;
-                forest[nhalos].MostBoundID  = info[nhalos].id;
-
-                /* All the mergertree indices */
-                forest[nhalos].Descendant = -1;
-                forest[nhalos].FirstProgenitor = -1;
-                forest[nhalos].NextProgenitor = -1;
-                forest[nhalos].FirstHaloInFOFgroup = -1;
-                forest[nhalos].NextHaloInFOFgroup = -1;
-                /* if(info[nhalos].id == 3058982278 || info[nhalos].id == 3058982280) { */
-                /*     fprintf(stderr,"info[%"PRId64"].id = %"PRId64". pid = %"PRId64" upid = %"PRId64"\n", */
-                /*             nhalos, info[nhalos].id, info[nhalos].pid, info[nhalos].upid); */
-                /*     fprintf(stderr,"##buffer = `%s'###\n",&buffer[start_pos]); */
-                /*     fprintf(stderr,"M200 = %lf Mtophat = %lf\n", forest[nhalos].M_Mean200, forest[nhalos].M_TopHat); */
-                /* } */
-                
+            /* Calculate the (approx.) number of particles in this halo */
+            forest[nhalos].Len   = (int) roundf(forest[nhalos].Mvir * inv_part_mass);
+            
+            /* Initialize other fields to indicate they are not populated */
+            forest[nhalos].FileNr = -1;
+            forest[nhalos].SubhaloIndex = (int) (forest_offset + nhalos);
+            forest[nhalos].SubHalfMass  = -1.0f;
+            forest[nhalos].MostBoundID  = info[nhalos].id;
+            
+            /* All the mergertree indices */
+            forest[nhalos].Descendant = -1;
+            forest[nhalos].FirstProgenitor = -1;
+            forest[nhalos].NextProgenitor = -1;
+            forest[nhalos].FirstHaloInFOFgroup = -1;
+            forest[nhalos].NextHaloInFOFgroup = -1;
+            /* if(info[nhalos].id == 3058982278 || info[nhalos].id == 3058982280) { */
+            /*     fprintf(stderr,"info[%"PRId64"].id = %"PRId64". pid = %"PRId64" upid = %"PRId64"\n", */
+            /*             nhalos, info[nhalos].id, info[nhalos].pid, info[nhalos].upid); */
+            /*     fprintf(stderr,"##buffer = `%s'###\n",&buffer[start_pos]); */
+            /*     fprintf(stderr,"M200 = %lf Mtophat = %lf\n", forest[nhalos].M_Mean200, forest[nhalos].M_TopHat); */
+            /* } */
+            
 
 #if 0
-                if(num_lines_printed < 10000) {
-                    fprintf(stdout,"MY PARSING produces: "
-                            "%lf %"PRId64" %lf %"PRId64" "
-                            "%"PRId64" %"PRId64" "
-                            "%f %f "
-                            "%f "
-                            "%f %f %f "
-                            "%f %f %f "
-                            "%f %f %f "
-                            "%d "
-                            "%f %f \n",
-                            info[nhalos].scale,
-                            info[nhalos].id,
-                            info[nhalos].desc_scale,
-                            info[nhalos].descid,
-                            
-                            info[nhalos].pid,
-                            info[nhalos].upid,
-                            
-                            forest[nhalos].Mvir,
-                            forest[nhalos].VelDisp,
-                            
-                            forest[nhalos].Vmax,
-
-                            forest[nhalos].Pos[0], forest[nhalos].Pos[1], forest[nhalos].Pos[2],
-                            forest[nhalos].Vel[0], forest[nhalos].Vel[1], forest[nhalos].Vel[2],
-                            
-                            forest[nhalos].Spin[0], forest[nhalos].Spin[1], forest[nhalos].Spin[2],
-                            
-                            forest[nhalos].SnapNum,
-                            
-                            forest[nhalos].M_Mean200, forest[nhalos].M_TopHat);
-                    num_lines_printed++;
-                }
+            if(num_lines_printed < 10000) {
+                fprintf(stdout,"MY PARSING produces: "
+                        "%lf %"PRId64" %lf %"PRId64" "
+                        "%"PRId64" %"PRId64" "
+                        "%f %f "
+                        "%f "
+                        "%f %f %f "
+                        "%f %f %f "
+                        "%f %f %f "
+                        "%d "
+                        "%f %f \n",
+                        info[nhalos].scale,
+                        info[nhalos].id,
+                        info[nhalos].desc_scale,
+                        info[nhalos].descid,
+                        
+                        info[nhalos].pid,
+                        info[nhalos].upid,
+                        
+                        forest[nhalos].Mvir,
+                        forest[nhalos].VelDisp,
+                        
+                        forest[nhalos].Vmax,
+                        
+                        forest[nhalos].Pos[0], forest[nhalos].Pos[1], forest[nhalos].Pos[2],
+                        forest[nhalos].Vel[0], forest[nhalos].Vel[1], forest[nhalos].Vel[2],
+                        
+                        forest[nhalos].Spin[0], forest[nhalos].Spin[1], forest[nhalos].Spin[2],
+                        
+                        forest[nhalos].SnapNum,
+                        
+                        forest[nhalos].M_Mean200, forest[nhalos].M_TopHat);
+                num_lines_printed++;
+            }
 #endif 
                     
 #ifndef USE_FGETS
@@ -699,12 +703,6 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                 bytes_read += (end_pos - start_pos + 1);
 #endif                 
                 nhalos++;
-            } else {
-                fprintf(stderr,"could not parse buffer = `%s' correctly. expected = %d found = %d\n",
-                        &buffer[start_pos], nitems_expected, nitems);
-                fprintf(stderr,"start_pos = %"PRId64" end_pos = %"PRId64"\n",start_pos, end_pos);
-                break;
-            }
             start_pos = end_pos + 1;
 #if 0            
             fprintf(stderr,"start_pos = %"PRId64"\n",start_pos);
@@ -1324,7 +1322,31 @@ void validate_fields(const int64_t totnhalos, const struct output_dtype *forest,
 
     fclose(fp);
 }
-    
+
+
+int run_checks_on_new_locations(const struct locations *new_locations, const struct locations *locations, const int64_t ntrees)
+{
+    for(int64_t i=0;i<ntrees;i++){
+        XPRINT(locations[i].forestid == new_locations[i].forestid,
+               ANSI_COLOR_RED"locations[%"PRId64"].forestid = %"PRId64" does not equal new_locations[%"PRId64"].forestid = %"PRId64 ANSI_COLOR_RESET"\n",
+               i, locations[i].forestid, i, new_locations[i].forestid);
+        XPRINT(locations[i].tree_root == new_locations[i].tree_root,
+               ANSI_COLOR_RED"locations[%"PRId64"].tree_root = %"PRId64" does not equal new_locations[%"PRId64"].tree_root = %"PRId64 ANSI_COLOR_RESET"\n",
+               i, locations[i].tree_root, i, new_locations[i].tree_root);
+        XPRINT(locations[i].fileid == new_locations[i].fileid,
+               ANSI_COLOR_RED"locations[%"PRId64"].fileid = %"PRId64" does not equal new_locations[%"PRId64"].fileid = %"PRId64 ANSI_COLOR_RESET"\n",
+               i, locations[i].fileid, i, new_locations[i].fileid);
+        XPRINT(locations[i].offset == new_locations[i].offset,
+               ANSI_COLOR_RED"locations[%"PRId64"].offset = %"PRId64" does not equal new_locations[%"PRId64"].offset = %"PRId64 ANSI_COLOR_RESET"\n",
+               i, locations[i].offset, i, new_locations[i].offset);
+               
+        if(locations[i].forestid  != new_locations[i].forestid) return EXIT_FAILURE;
+        if(locations[i].tree_root != new_locations[i].tree_root) return EXIT_FAILURE;
+        if(locations[i].fileid    != new_locations[i].fileid) return EXIT_FAILURE;
+        if(locations[i].offset    != new_locations[i].offset) return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
+}
 
 int main(int argc, char **argv)
 {
@@ -1462,9 +1484,59 @@ int main(int argc, char **argv)
     char locations_bin_filename[MAXLEN];
     my_snprintf(locations_bin_filename,MAXLEN,"%s/locations.bin", output_dir);    
     FILE *locations_binary_fp = fopen(locations_bin_filename,"r");
+    int compute_bytes = 1;
 
+    //There is a locations file but may be it was from a different run or different data-set
+    //This will be wasteful but allocate a new locations and then read in the data and check
+    //that everything is okay. Only then, trust the number of bytes. 
+    if(locations_binary_fp != NULL) {
+        // Found the locations.bin file -> read it in and avoid computing the number of bytes
+        gettimeofday(&t0, NULL);
+        fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA"..."ANSI_COLOR_RESET"\n",locations_bin_filename);
+        size_t dummy;
+        int64_t ntrees_in_file;
+        struct locations *tmp_locations = my_malloc(sizeof(*tmp_locations), ntrees);
+        my_fread(&dummy, sizeof(dummy), 1, locations_binary_fp);
+        assert(dummy == sizeof(*tmp_locations));
+        my_fread(&ntrees_in_file, sizeof(ntrees_in_file), 1, locations_binary_fp);
+        assert(ntrees_in_file == ntrees);
+        my_fread(tmp_locations, sizeof(*tmp_locations), ntrees_in_file, locations_binary_fp);
+        fclose(locations_binary_fp);
+        locations_binary_fp = NULL;
+
+        //If all the fields that should agree, (essentially everything set in locations so far),
+        //then we can be sure we are not corrupting the data. 
+        const int status = run_checks_on_new_locations(tmp_locations, locations, ntrees);
+        if (status == EXIT_SUCCESS) {
+            output_locations = my_malloc(sizeof(*output_locations), ntrees);
+            assert(sizeof(*output_locations) == sizeof(*tmp_locations) && "locations struct is varying in size! The sky is falling!!");
+            memcpy(output_locations, tmp_locations, sizeof(*tmp_locations) * ntrees);
+            gettimeofday(&t1, NULL);
+            fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA".....done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n",
+                    locations_bin_filename, ADD_DIFF_TIME(t0, t1));
+            compute_bytes = 0;
+            fprintf(stderr,ANSI_COLOR_MAGENTA"If you see parse errors later on, that could be because the `forests.bin' and `locations.bin' do not correspond to `%s' "ANSI_COLOR_RESET"\n", input_dir);
+            fprintf(stderr,ANSI_COLOR_MAGENTA"In that case, delete the `forests.bin' and `locations.bin' files in `%s' and restart the code"ANSI_COLOR_RESET"\n",output_dir);
+        } else {
+            fprintf(stderr,ANSI_COLOR_RED"ERROR: Locations in file `%s' does not agree with currently read in locations. Deleting the `locations.bin'.."ANSI_COLOR_RESET"\n",locations_bin_filename);
+            unlink(locations_bin_filename);
+            fprintf(stderr,ANSI_COLOR_RED"Forests data might have been corrupted as well. Deleting the `forests.bin' file in output directory"ANSI_COLOR_RESET"\n");
+            char forest_bin_file[MAXLEN];
+            my_snprintf(forest_bin_file, MAXLEN, "%s/forests.bin", output_dir);
+            unlink(forest_bin_file);
+
+            //Ideally, I should restart the code but that will require goto's.
+            //Just exit and tell the user to restart the code. 
+            fprintf(stderr,ANSI_COLOR_RED"\tPlease ensure the `%s/forests.bin' and `%s/locations.bin' files have indeed been deleted"ANSI_COLOR_RESET"\n", output_dir, output_dir);
+            fprintf(stderr,ANSI_COLOR_GREEN"\tAfter that, please restart the code with `%s %s %s %s'"ANSI_COLOR_RESET"\n",argv[0], argv[1], argv[2], argv[3]);
+            fprintf(stderr,"Exiting now...\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+        
     //Is there a previous run that I could read in?
-    if(locations_binary_fp == NULL) {
+    if(compute_bytes == 1) {
         output_locations = my_malloc(sizeof(*output_locations), ntrees);
         assert(sizeof(*output_locations) == sizeof(*locations) && "locations struct is varying in size! The sky is falling!!");
         memcpy(output_locations, locations, sizeof(*locations) * ntrees);
@@ -1609,25 +1681,7 @@ int main(int argc, char **argv)
             my_fwrite(locations, sizeof(*locations), ntrees, locations_binary_fp);//totnforests in this file 
             fclose(locations_binary_fp);
         }
-    } else {
-        // Found the locations.bin file -> read it in and avoid computing the number of bytes
-        gettimeofday(&t0, NULL);
-        fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA"..."ANSI_COLOR_RESET"\n",locations_bin_filename);
-        size_t dummy;
-        int64_t ntrees_in_file;
-        my_fread(&dummy, sizeof(dummy), 1, locations_binary_fp);
-        assert(dummy == sizeof(*locations));
-        my_fread(&ntrees_in_file, sizeof(ntrees_in_file), 1, locations_binary_fp);
-        assert(ntrees_in_file == ntrees);
-        my_fread(locations, sizeof(*locations), ntrees_in_file, locations_binary_fp);
-        fclose(locations_binary_fp);//
-        output_locations = my_malloc(sizeof(*output_locations), ntrees);
-        assert(sizeof(*output_locations) == sizeof(*locations) && "locations struct is varying in size! The sky is falling!!");
-        memcpy(output_locations, locations, sizeof(*locations) * ntrees);
-        gettimeofday(&t1, NULL);
-        fprintf(stderr,ANSI_COLOR_MAGENTA"Reading binary locations file "ANSI_COLOR_GREEN"`%s'"ANSI_COLOR_MAGENTA".....done. Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n",
-                locations_bin_filename, ADD_DIFF_TIME(t0, t1));
-    }
+    } //computing the number of bytes and saving the info as locations.bin file
     
 
     
