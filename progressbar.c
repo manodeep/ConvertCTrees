@@ -102,7 +102,7 @@ void finish_myprogressbar(int *interrupted)
     } else {
         fprintf(stderr," done.");
     }
-    fprintf(stderr, " Time taken = %0.2g seconds\n", timediff);
+    fprintf(stderr, " Time taken = %14.3g seconds\n", timediff);
     
     beg_of_string_index = 0;
     my_snprintf(PROGRESSBARSTRING,MAXLEN,"%s"," ");
