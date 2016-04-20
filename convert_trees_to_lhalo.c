@@ -107,9 +107,8 @@ int64_t read_forests(const char *filename, const char *output_dir, int64_t **f, 
         XASSERT(ntrees == ntrees_found,
                 "ntrees=%"PRId64" should be equal to ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
         fclose(fp);
-
         /* Output the forests in binary */
-        forests_fp = fopen(forest_bin_file,"w");
+        forests_fp = my_fopen(forest_bin_file,"w");
         size_t dummy = sizeof(*forests);
         my_fwrite(&dummy, sizeof(dummy), 1, forests_fp);
         my_fwrite(&ntrees, sizeof(ntrees), 1, forests_fp);
@@ -137,10 +136,10 @@ int64_t read_forests(const char *filename, const char *output_dir, int64_t **f, 
 }    
 
 
-int64_t read_locations(const char *filename, const int64_t ntrees, struct locations *l, int *num_files, int *box_div)
+int64_t read_locations(const char *filename, const int64_t ntrees, struct locations *l, int64_t *num_files, int64_t *box_div)
 {
     char buffer[MAXBUFSIZE];
-    int max_fileid = 0;
+    int64_t max_fileid = 0;
     const char comment = '#';
     /* By passing the comment character, getnumlines
        will return the actual number of lines, ignoring
@@ -180,7 +179,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
     XASSERT(ntrees == ntrees_found, "ntrees=%"PRId64" should be equal to ntrees_found=%"PRId64"\n", ntrees, ntrees_found);
     fclose(fp);
 
-    for(int i=0;i<ntrees_found;i++){
+    for(int64_t i=0;i<ntrees_found;i++){
         if (locations[i].fileid > max_fileid) {
             max_fileid = locations[i].fileid;
         }
@@ -191,7 +190,7 @@ int64_t read_locations(const char *filename, const int64_t ntrees, struct locati
     const int box_divisions = (int) round(cbrt(*num_files));
     const int box_cube = box_divisions * box_divisions * box_divisions;
     XASSERT( (box_cube) == (*num_files),
-             "box_divisions^3=%d should be equal to nfiles=%d\n",
+             "box_divisions^3=%d should be equal to nfiles=%"PRId64"\n",
              box_cube, *num_files);
     *box_div = box_divisions;
     return ntrees_found;
@@ -297,7 +296,7 @@ void assign_forest_ids(const int64_t ntrees, struct locations *locations, int64_
     }
 }    
 
-struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, struct locations *locations, struct locations *output_locations, const int nfiles)
+struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, struct locations *locations, struct locations *output_locations, const int64_t nfiles)
 {
     sort_locations_on_fid_file_offset(ntrees, locations);
     sort_locations_on_fid_file_offset(ntrees, output_locations);
@@ -354,7 +353,10 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
                 }
                 max_common_fileid = min_fileid;
             } else {
-
+                /* fprintf(stderr,"For forest id = %"PRId64" trees are stored in separate files (min, max) = (%"PRId64", %"PRId64")\n", */
+                /*         start_forestid, min_fileid, max_fileid); */
+                /* interrupted=1; */
+                
                 /* create a histogram of the fileids */
                 memset(histogram_fileids, 0, sizeof(*histogram_fileids) * nfiles);
                 for(int64_t j=start_index_forest;j<end_index_forest;j++) {
@@ -362,7 +364,7 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
                 }
 
                 int64_t max_common_value = 0;
-                for(int j=0;j<nfiles;j++) {
+                for(int64_t j=0;j<nfiles;j++) {
                     if(histogram_fileids[j] > max_common_value) {
                         max_common_value = histogram_fileids[j];
                         max_common_fileid = j;
@@ -373,13 +375,15 @@ struct forest_info * assign_trees_in_forest_to_same_file(const int64_t ntrees, s
                     output_locations[j].fileid = max_common_fileid;
                     if(output_locations[j].fileid != locations[j].fileid) {
                         num_trees_moved++;
+                        /* fprintf(stderr,"Moved tree = %10"PRId64" from fileid=%3"PRId64" to fileid=%3"PRId64"\n",locations[j].tree_root, locations[j].fileid, output_locations[j].fileid); */
+                        /* interrupted=1; */
                     }
                 }
             }
 
             /* Update the forest_info */
             XASSERT((max_common_fileid >=0 && max_common_fileid < nfiles),
-                    "max common fileid = %"PRId64" is not within bounds [0,%d)\n",
+                    "max common fileid = %"PRId64" is not within bounds [0,%"PRId64")\n",
                     max_common_fileid, nfiles);
                     
             forest_info->fileid[forest_index] = max_common_fileid;
@@ -448,9 +452,9 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
     
     while(bytes_read < bytes) {
         char buffer[MAXLEN+1]={'\0'};
-        const int bytes_to_read = (bytes - bytes_read) > MAXLEN ? MAXLEN:(bytes - bytes_read);
+        const int64_t bytes_to_read = (bytes - bytes_read) > MAXLEN ? MAXLEN:(bytes - bytes_read);
 #if 0        
-        fprintf(stderr,"NEED TO READ %zu BYTES bytes_read = %zu bytes_to_read = %d\n", bytes, bytes_read, bytes_to_read);
+        fprintf(stderr,"NEED TO READ %zu BYTES bytes_read = %zu bytes_to_read = %"PRId64"\n", bytes, bytes_read, bytes_to_read);
 #endif        
 
 #ifdef USE_FGETS
@@ -516,12 +520,12 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             const int nitems = sscanf(&buffer[start_pos],
                                       "%lf %"SCNd64" %lf %"SCNd64" %*d "
                                       "%"SCNd64" %"SCNd64" %*d %*d "
-
+                                      
                                       /*the first two fields are sam_mvir and mvir. one of the two need to be assigned to Mvir.
                                         I have chosen Mvir from halofinder (second column in "%*f %f") */
                                       "%*f %f %*f %*f %f "
-                                      "%*d %*f %f "
-                                      "%f %f %f "
+                                          "%*d %*f %f "
+                                          "%f %f %f "
                                       "%f %f %f "
                                       "%f %f %f "
                                       "%*f %*d %*d %*d %*d %d "
@@ -610,7 +614,9 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             };
             //parse string
 
-            int nitems = stringparse(&buffer[start_pos], data, (enum parsetype *)types, NUM_INPUTS);
+            //stringparse returns int64_t. to be consistent with the previous
+            //section I made nitems as an int
+            int nitems = (int) stringparse(&buffer[start_pos], data, (enum parsetype *)types, NUM_INPUTS);
             if (nitems == NUM_INPUTS) {
                 nitems = nitems_expected;
             }
@@ -745,6 +751,8 @@ int64_t write_forests_and_locations(const char *filename, const int64_t ntrees, 
 
 int64_t find_fof_halo(const int64_t totnhalos, const struct additional_info *info, const int start_loc, const int64_t upid, int verbose, int64_t calldepth)
 {
+    XASSERT(totnhalos < INT_MAX,
+            "Totnhalos must be less than %d. Otherwise indexing with int (start_loc) will break\n", INT_MAX);
     int64_t loc = -1;
     assert(info[start_loc].pid != -1);
     if(calldepth >= 3) {
@@ -865,9 +873,9 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
     /* fprintf(stderr,"IN MERGERTREE totnhalos = %"PRId64"\n",totnhalos); */
     
     const int nsnapshots = max_snapnum + 1;
-    float *scales = my_malloc(sizeof(*scales), nsnapshots);
+    double *scales = my_malloc(sizeof(*scales), nsnapshots);
     for(int i=0;i<nsnapshots;i++) {
-        scales[i] = FLT_MAX;
+        scales[i] = DBL_MAX;
     }
     int64_t *start_scale = my_calloc(sizeof(*start_scale), nsnapshots);
     for(int i=0;i<nsnapshots;i++) {
@@ -982,14 +990,14 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
         }
 
         int desc_snapnum = nsnapshots-1;
-        const float desc_scale = info[i].desc_scale;
+        const double desc_scale = info[i].desc_scale;
         const int64_t descid = info[i].descid;
-        const float max_epsilon_scale = 1.0e-4;
+        const double max_epsilon_scale = 1.0e-4;
         while((desc_snapnum >= 0) &&
-              (fabsf(scales[desc_snapnum] - desc_scale) > max_epsilon_scale) ) {
+              (fabs(scales[desc_snapnum] - desc_scale) > max_epsilon_scale) ) {
             desc_snapnum--;
         }
-        XASSERT(desc_snapnum >= 0 && desc_snapnum < nsnapshots && (fabsf(scales[desc_snapnum] - desc_scale) <= 1e-4),
+        XASSERT(desc_snapnum >= 0 && desc_snapnum < nsnapshots && (fabs(scales[desc_snapnum] - desc_scale) <= 1e-4),
                 "Could not locate desc_snapnum. desc_snapnum = %d nsnapshots = %d \n",
                 desc_snapnum, nsnapshots);
 
@@ -1088,7 +1096,7 @@ int64_t ** calculate_forest_info_per_file(const int64_t nfiles, int64_t *totnfor
 }
     
         
-void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, int verbose)
+int fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct additional_info *info, int verbose)
 {
 #define ID_COMPARATOR(x, y)         ((x.id > y.id ? 1:(x.id < y.id ? -1:0)))
 #define SCALE_ID_COMPARATOR(x,y)    ((x.scale > y.scale ? -1:(x.scale < y.scale ? 1:ID_COMPARATOR(x, y))) )
@@ -1102,24 +1110,37 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
 #undef SCALE_ID_COMPARATOR
 #undef MULTIPLE_ARRAY_EXCHANGER    
 
-    float max_scale = info[0].scale;
-    int64_t last_halo_with_max_scale = 0;
-    int64_t num_fofs_last_scale = 0;
-    for(int64_t i=0;i<totnhalos;i++) {
+    double max_scale = info[0].scale;
+    int64_t last_halo_with_max_scale = 1;
+    int64_t num_fofs_last_scale = info[0].pid == -1 ? 1:0;
+    for(int64_t i=1;i<totnhalos;i++) {
         if(info[i].scale < max_scale) {
             break;
         }
-        last_halo_with_max_scale = i;
         num_fofs_last_scale += (info[i].pid == -1) ? 1:0;
+        last_halo_with_max_scale = i;
     }
-
-    XASSERT(num_fofs_last_scale > 0,
-            "Weird! There must be non-zero FOF's at z=0\n. Found num_fof = %"PRId64"\n",
-            num_fofs_last_scale);
+    if(num_fofs_last_scale == 0) {
+        fprintf(stderr,"ERROR: NO FOFs at max scale = %lf Will crash - here's some info that might help debug\n", max_scale);
+        fprintf(stderr,"Last scale halo id (likely tree root id ) = %"PRId64" at a = %lf\n",info[0].id, info[0].scale);
+        fprintf(stderr,"########################################################\n");
+        fprintf(stderr,"# snap     id      pid      upid    mass     scale      \n");
+        fprintf(stderr,"########################################################\n");
+        for(int64_t i=0;i<=last_halo_with_max_scale;i++) {
+            fprintf(stderr,"%d  %10"PRId64"  %10"PRId64" %10"PRId64" %12.6e  %20.8e\n",
+                    forest[i].SnapNum, info[i].id, info[i].pid, info[i].upid, forest[i].Mvir, info[i].scale);
+        }
+        fprintf(stderr,"All halos now:\n\n");
+        for(int64_t i=0;i<totnhalos;i++) {
+            fprintf(stderr,"%d  %10"PRId64"  %10"PRId64" %10"PRId64" %12.6e %20.8e\n",
+                    forest[i].SnapNum, info[i].id, info[i].pid, info[i].upid, forest[i].Mvir, info[i].scale);
+        }
+        return -1;
+    }
     
     /* Is there anything to do? If there is only one FOF at z=0, then simply return */
     if(num_fofs_last_scale == 1) {
-        return;
+        return EXIT_SUCCESS;
     }
     
     int64_t max_mass_fof_loc = -1;
@@ -1153,6 +1174,8 @@ void fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct add
         }
         info[i].upid = fof_id;
     }
+
+    return EXIT_SUCCESS;
 }
 
 void validate_fields(const int64_t totnhalos, const struct output_dtype *forest, const struct additional_info *info, const int max_snapnum)
@@ -1391,7 +1414,7 @@ int main(int argc, char **argv)
         fprintf(stderr,"Expect particle mass in 10^10 Msun/h units and must be non-zero\n");
         exit(EXIT_FAILURE);
     }
-    const float inv_part_mass = 1.0/part_mass;
+    const float inv_part_mass = 1.0f/part_mass;
 
     {
         const size_t expected_struct_size = 104;
@@ -1413,7 +1436,7 @@ int main(int argc, char **argv)
     fprintf(stderr, ANSI_COLOR_GREEN"Reading forests......done. Ntrees = %"PRId64". Time = %12.3lf seconds"ANSI_COLOR_RESET"\n\n", ntrees, ADD_DIFF_TIME(t0, t1));
 
     struct locations *locations = my_malloc(sizeof(*locations), ntrees);
-    int nfiles = 0, BOX_DIVISIONS=0;
+    int64_t nfiles = 0, BOX_DIVISIONS=0;
     gettimeofday(&t0,NULL);
     fprintf(stderr, ANSI_COLOR_MAGENTA"Reading locations...."ANSI_COLOR_RESET"\n");
     const int64_t ntrees_loc = read_locations(locations_filename, ntrees, locations, &nfiles, &BOX_DIVISIONS);
@@ -1448,7 +1471,7 @@ int main(int argc, char **argv)
         for (int j=0; j<BOX_DIVISIONS; j++) {
             for(int k=0; k<BOX_DIVISIONS; k++) {
                 my_snprintf(buffer,MAXLEN,"%s/tree_%d_%d_%d.dat", input_dir, i, j, k);
-                int id = id = i*BOX_DIVISIONS*BOX_DIVISIONS + j*BOX_DIVISIONS + k;
+                int64_t id  = i*BOX_DIVISIONS*BOX_DIVISIONS + j*BOX_DIVISIONS + k;
                 tree_inputs[id]  = my_fopen(buffer, "r");
                 /* assert(setvbuf(tree_inputs[id], NULL, _IONBF, 0) == 0); */
                 my_fseek(tree_inputs[id],0L, SEEK_END);
@@ -1457,9 +1480,9 @@ int main(int argc, char **argv)
 
                 tree_inputs_fd[id]  = fileno(tree_inputs[id]);
 
-                my_snprintf(buffer,MAXLEN,"%s/lhalotree.bin.%d", output_dir, id);
+                my_snprintf(buffer,MAXLEN,"%s/lhalotree.bin.%"PRId64"", output_dir, id);
                 unlink(buffer);
-                my_snprintf(tree_outputs_fname[id], LOCATIONS_FILENAME_SIZE, "lhalotree.bin.%d",id);
+                my_snprintf(tree_outputs_fname[id], LOCATIONS_FILENAME_SIZE, "lhalotree.bin.%"PRId64"",id);
                 tree_outputs[id] = my_fopen(buffer, "w");
                 tree_outputs_fd[id] = fileno(tree_outputs[id]);
                 tree_outputs_fd_offset[id] = 0;
@@ -1665,7 +1688,7 @@ int main(int argc, char **argv)
                 total_tree_bytes[locations[i].fileid] += locations[i].bytes;
             }
             
-            for(int i=0;i<nfiles;i++) {
+            for(int64_t i=0;i<nfiles;i++) {
                 XASSERT(total_tree_bytes[i] < inp_file_sizes[i],
                         "Bytes in tree = %"PRId64" must be smaller than file size = %"PRId64"\n",
                         total_tree_bytes[i], inp_file_sizes[i]);
@@ -1680,6 +1703,7 @@ int main(int argc, char **argv)
             my_fwrite(&ntrees, sizeof(ntrees), 1, locations_binary_fp);
             my_fwrite(locations, sizeof(*locations), ntrees, locations_binary_fp);//totnforests in this file 
             fclose(locations_binary_fp);
+
         }
     } //computing the number of bytes and saving the info as locations.bin file
     
@@ -1714,7 +1738,7 @@ int main(int argc, char **argv)
 
 /* #define RESET_FORESTS  (3) */
     
-    for(int i=0;i<nfiles;i++) {
+    for(int64_t i=0;i<nfiles;i++) {
         FILE *fp = tree_outputs[i];
         rewind(fp);
         const int zero = 0;
@@ -1741,7 +1765,7 @@ int main(int argc, char **argv)
 
     /* Now copy each one of the forests. Note a forest can have multiple trees */
     int64_t nhalos_allocated = 1000000;//1 million halos
-    struct output_dtype *forest  = my_malloc(sizeof(*forest), nhalos_allocated);
+    struct output_dtype *forest_halos  = my_malloc(sizeof(*forest_halos), nhalos_allocated);
     struct additional_info *info = my_malloc(sizeof(*info), nhalos_allocated);
     int64_t tree_index = 0;
     my_snprintf(buffer, MAXLEN, "%s/output_order_forests.dat", output_dir);
@@ -1759,7 +1783,7 @@ int main(int argc, char **argv)
                     locations[tree_index].tree_root, locations[tree_index].forestid);
             /* fflush(output_order_locations); */
             int64_t fileid = locations[tree_index].fileid;
-            const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest, forest_offset, &info,
+            const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest_halos, forest_offset, &info,
 #ifdef USE_FGETS
                                                          tree_inputs[fileid],
 #else
@@ -1789,21 +1813,39 @@ int main(int argc, char **argv)
         /* Fix flybys -> multiple roots at z=0 must be joined such that only one root remains */
         /* fprintf(stdout,"Fixing flybys ...\n"); */
         /* fflush(stdout); */
-        fix_flybys(totnhalos, forest, info, verbose);
+        int status = fix_flybys(totnhalos, forest_halos, info, verbose);
+        if(status != EXIT_SUCCESS) {
+            fprintf(stderr,ANSI_COLOR_RED"ERROR while trying to convert Forest id = %"PRId64" with ntrees = %"PRId64 " last tree index = %10"PRId64 ANSI_COLOR_RESET"\n",
+                    forest_info->forestid[i], forest_info->num_trees[i], tree_index);
+
+            tree_index -= forest_info->num_trees[i];
+            for(int64_t j=0;j<forest_info->num_trees[i];j++) {
+                fprintf(stderr,"Tree Root = %10"PRId64" inp. fileid = %4"PRId64" output fileid = %4"PRId64"\n",
+                        locations[tree_index].tree_root,
+                        locations[tree_index].fileid,
+                        output_locations[tree_index].fileid);
+                XASSERT(locations[tree_index].forestid == output_locations[tree_index].forestid,
+                        "locations[%"PRId64"].forestid = %"PRId64" must equal output_locations[%"PRId64"].forestid = %"PRId64"\n",
+                        tree_index,locations[tree_index].forestid, tree_index, output_locations[tree_index].forestid);
+                tree_index++;
+            }        
+            exit(EXIT_FAILURE);
+                    
+        }
         /* fprintf(stdout,"Fixing flybys ......done\n"); */
         /* fflush(stdout); */
 
         /* Entire tree is loaded in. Fix upid's*/
         /* fprintf(stdout,"Fixing upid ...\n"); */
         /* fflush(stdout); */
-        const int max_snapnum = fix_upid(totnhalos, forest, info, &interrupted, verbose);
+        const int max_snapnum = fix_upid(totnhalos, forest_halos, info, &interrupted, verbose);
         /* fprintf(stdout,"Fixing upid ......done\n"); */
         /* fflush(stdout); */
         
         /* Now the entire tree is loaded in. Assign the mergertree indices */
         /* fprintf(stdout,"Assigning mergertree indices...\n"); */
         /* fflush(stdout); */
-        assign_mergertree_indices(totnhalos, forest, info, max_snapnum);
+        assign_mergertree_indices(totnhalos, forest_halos, info, max_snapnum);
         /* fprintf(stdout,"Assigning mergertree indices......done\n"); */
         /* fflush(stdout); */
 
@@ -1814,15 +1856,15 @@ int main(int argc, char **argv)
         offsets_per_file[out_fileid] += num_bytes;
         
 #ifdef RESET_FORESTS
-        validate_fields(totnhalos, forest, info, max_snapnum);
+        validate_fields(totnhalos, forest_halos, info, max_snapnum);
 #endif
         /* write out the forest in binary */
-        my_fwrite(forest, sizeof(*forest), totnhalos, tree_outputs[out_fileid]);
+        my_fwrite(forest_halos, sizeof(*forest_halos), totnhalos, tree_outputs[out_fileid]);
         
     }
     fclose(output_order_locations);
 
-    for(int i=0;i<nfiles;i++) {
+    for(int64_t i=0;i<nfiles;i++) {
         FILE *fp = tree_outputs[i];
         fflush(fp);
         fsync(fileno(fp));
@@ -1834,7 +1876,7 @@ int main(int argc, char **argv)
                     tree_outputs_fname[i], totnforests_per_file[i]);
         } else {
             if(nforests_written_per_file[i] != totnforests_per_file[i] ){
-                fprintf(stderr,"\nIn file `%s' i = %d nforests_written = %d does not agree with (int64_t) totnforests_per_file = %"PRId64"\n"
+                fprintf(stderr,"\nIn file `%s' i = %"PRId64" nforests_written = %d does not agree with (int64_t) totnforests_per_file = %"PRId64"\n"
                         "Something went wrong during writing the files\n",
                         tree_outputs_fname[i], i, nforests_written_per_file[i], totnforests_per_file[i]); 
             }
@@ -1846,7 +1888,7 @@ int main(int argc, char **argv)
                     tree_outputs_fname[i], totnhalos_per_file[i]);
         } else {
             if(nhalos_written_per_file[i] != totnhalos_per_file[i]) {
-                fprintf(stderr,"\nIn file `%s' i = %d nhalos_written = %d does not agree with (int64_t) totnhalos_per_file = %"PRId64"\n"
+                fprintf(stderr,"\nIn file `%s' i = %"PRId64" nhalos_written = %d does not agree with (int64_t) totnhalos_per_file = %"PRId64"\n"
                         "Something went wrong during writing the files\n",
                         tree_outputs_fname[i], i, nhalos_written_per_file[i], totnhalos_per_file[i]); 
             }
@@ -1884,7 +1926,7 @@ int main(int argc, char **argv)
 
     
     /* close open file pointers + free memory for file pointers */
-    for(int i=0;i<nfiles;i++) {
+    for(int64_t i=0;i<nfiles;i++) {
         fclose(tree_inputs[i]);
         fclose(tree_outputs[i]);
     }
@@ -1918,7 +1960,7 @@ int main(int argc, char **argv)
     free(offsets_per_file);
     free(totnforests_per_file);
     free(totnhalos_per_file);
-    free(forest);free(info);
+    free(forest_halos);free(info);
     
     gettimeofday(&tend, NULL);
     fprintf(stderr,"\n\nWrote out %"PRId64" halos (across all files) contained in %"PRId64" trees in %"PRId64" forests in the LHALOTree format. Time taken = %0.2g seconds\n\n",
