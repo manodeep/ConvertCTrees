@@ -95,10 +95,10 @@
 }
 
 #define SGLIB_ARRAY_QUICK_SORT(type, a, max, comparator, elem_exchanger) {\
-  int   _i_, _j_, _p_, _stacki_, _start_, _end_;\
+  int64_t   _i_, _j_, _p_, _stacki_, _start_, _end_;\
   /* can sort up to 2^64 elements */\
-  int   _startStack_[64]; \
-  int   _endStack_[64];\
+  int64_t   _startStack_[64]; \
+  int64_t   _endStack_[64];\
 /*   type  _tmp_;\ Commented out by Manodeep Sinha, 6th April. The continuing slash is important */\
   _startStack_[0] = 0;\
   _endStack_[0] = (max);\
