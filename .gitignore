@@ -21,6 +21,8 @@
 *.dylib
 
 # Executables
+convert_trees_to_lhalo
+compare_two_lhalotree
 *.exe
 *.out
 *.app
@@ -30,3 +32,8 @@
 
 # Debug files
 *.dSYM/
+
+#Misc
+xx*
+yy*
+*.*~
