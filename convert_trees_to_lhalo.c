@@ -815,9 +815,7 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
 {
 
     int max_snapnum = -1;
-    /* if(verbose == 1) { */
-    /*     fprintf(stderr,"sorting for totnhalos = %"PRId64"\n", totnhalos); */
-    /* } */
+
     /*First sort everything on ID */
 #define ID_COMPARATOR(x, y)         ((x.id > y.id ? 1:(x.id < y.id ? -1:0)))
 #define SCALE_ID_COMPARATOR(x,y)    ((x.scale > y.scale ? -1:(x.scale < y.scale ? 1:ID_COMPARATOR(x, y))) )
@@ -826,20 +824,19 @@ int fix_upid(const int64_t totnhalos, struct output_dtype *forest, struct additi
         SGLIB_ARRAY_ELEMENTS_EXCHANGER(struct additional_info, info, i, j) \
             }
     SGLIB_ARRAY_HEAP_SORT(struct additional_info, info, totnhalos, SCALE_ID_COMPARATOR, MULTIPLE_ARRAY_EXCHANGER);
-    /* if(verbose == 1) { */
-    /*     fprintf(stderr,"sorting for totnhalos = %"PRId64"..done\n\n", totnhalos); */
-    /* } */
 
     /* Change upid to id, so we can sort the fof's and subs to be contiguous */
+    //I am paranoid -> so I am going to set all FOF upid's first and then
+    //use the upid again. Two loops are required but that relaxes any assumptions
+    //about ordering of fof/subhalos. 
     for(int64_t i=0;i<totnhalos;i++) {
-        /* if(info[i].id == 3058456321) { */
-        /*     fprintf(stderr,"In %s>  i = %"PRId64" id = 3058456321 pid = %"PRId64" upid = %"PRId64"\n", */
-        /*             __FUNCTION__, i, info[i].pid, info[i].upid); */
-        /* } */
         info[i].upid = (info[i].pid == -1) ? info[i].id:info[i].upid;
         if(forest[i].SnapNum > max_snapnum) {
             max_snapnum = forest[i].SnapNum;
         }
+    }
+
+    for(int64_t i=0;i<totnhalos;i++) {
         if(info[i].pid == -1) {
             continue;
         }

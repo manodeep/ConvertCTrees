@@ -64,7 +64,7 @@ extern "C" {
 #else
 #define XPRINT(EXP, ...)                                              \
     do { if (!(EXP)) {                                                  \
-            printf("Error in file: %s\tfunc: %s\tline: %d with expression `"#EXP"'\n", __FILE__, __FUNCTION__, __LINE__); \
+            printf("Warning in file: %s\tfunc: %s\tline: %d with expression `"#EXP"'\n", __FILE__, __FUNCTION__, __LINE__); \
             printf(__VA_ARGS__);                                        \
             fflush(stdout);                                             \
         } \
