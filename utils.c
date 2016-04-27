@@ -34,6 +34,7 @@ void run_system_call(const char *execstring)
   status=system(execstring);
   if(status != EXIT_SUCCESS) {
     fprintf(stderr,"ERROR: executing system command: \n`%s'\n...exiting\n",execstring);
+    perror(NULL);
     exit(EXIT_FAILURE);
   }
   
@@ -45,11 +46,11 @@ FILE * my_fopen(const char *fname,const char *mode)
 {
   FILE *fp=NULL;
   fp = fopen(fname,mode);
-  if(fp == NULL)
-	{
-	  fprintf(stderr,"Could not open file `%s'\n",fname);
-	  exit(EXIT_FAILURE);
-	}
+  if(fp == NULL) {
+      fprintf(stderr,"Could not open file `%s'\n",fname);
+      perror(NULL);
+      exit(EXIT_FAILURE);
+  }
   return fp;
 }
 
@@ -88,6 +89,7 @@ size_t my_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
     if(nwritten != nmemb) {
         fprintf(stderr,"I/O error (fwrite) has occured.\n");
         fprintf(stderr,"Instead of reading nmemb=%zu, I got nread = %zu ..exiting\n",nmemb,nwritten);
+        perror(NULL);
         exit(EXIT_FAILURE);
     }
     return nwritten;
@@ -99,6 +101,7 @@ size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
   if(nread != nmemb) {
     fprintf(stderr,"I/O error (fread) has occured.\n");
     fprintf(stderr,"Instead of reading nmemb=%zu, I got nread = %zu ..exiting\n",nmemb,nread);
+    perror(NULL);
     exit(EXIT_FAILURE);
   }
   return nread;
@@ -109,6 +112,7 @@ int my_fseek(FILE *stream, long offset, int whence)
   int err=fseek(stream,offset,whence);
   if(err != 0) {
     fprintf(stderr,"ERROR: Could not seek `%ld' bytes into the file..exiting\n",offset);
+    perror(NULL);
     exit(EXIT_FAILURE);
   }
   return err;
@@ -153,6 +157,7 @@ int64_t copy_bytes_with_pread(const size_t bytes, int in, int out, off_t offset)
             offset += bytes_read;
             if(write(out, buffer, bytes_read) != bytes_read) {
                 fprintf(stderr,"Could not write %zu bytes\n",bytes_read);
+                perror(NULL);
                 exit(EXIT_FAILURE);
             } else {
                 bytes_written += bytes_read;
@@ -160,6 +165,7 @@ int64_t copy_bytes_with_pread(const size_t bytes, int in, int out, off_t offset)
         } else {
             fprintf(stderr, "Could not read requested %zu bytes - only have copied bytes = %zu\n",
                     bytes, bytes_written);
+            perror(NULL);
             exit(EXIT_FAILURE);
         }
     }
@@ -258,16 +264,13 @@ void print_time(struct timeval t0,struct timeval t1,const char *s)
 void* my_realloc(void *x,size_t size,int64_t N,const char *varname)
 {
   void *tmp = realloc(x,N*size);
-  size_t gigabytes = N*size/(1024.0*1024.0*1024.0);
 
   if (tmp==NULL) {
     fprintf(stderr,"ERROR: Could not reallocate for %"PRId64" elements with %zu size for variable `%s' ..aborting\n",N,size,varname);
     my_free((void **) &x);
+    perror(NULL);
     exit(EXIT_FAILURE);
-  } else {
-    if(gigabytes > 1)
-      fprintf(stderr,"\n Successfully re-allocated  %"PRId64" elements with total size %zu (GB) for variable `%s' \n",N, gigabytes,varname);
-  }
+  } 
   return tmp;
 
 }
@@ -278,6 +281,7 @@ void* my_malloc(size_t size,int64_t N)
   x = malloc(N*size);
   if (x==NULL){
     fprintf(stderr,"malloc for %"PRId64" elements with %zu bytes failed..aborting\n",N,size);
+    perror(NULL);
     exit(EXIT_FAILURE);
   }
   
@@ -293,6 +297,7 @@ void* my_calloc(size_t size,int64_t N)
   x = calloc((size_t) N, size);
   if (x==NULL)	{
     fprintf(stderr,"malloc for %"PRId64" elements with %zu size failed..aborting\n",N,size);
+    perror(NULL);
     exit(EXIT_FAILURE);
   }
 

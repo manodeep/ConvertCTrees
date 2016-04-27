@@ -3,6 +3,9 @@
 #include <unistd.h>
 #include <limits.h>
 #include <float.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+
 
 #define _FILE_OFFSET_BITS 64
 
@@ -1422,6 +1425,11 @@ int main(int argc, char **argv)
                 "sizeof output struct must exactly equal %zu bytes\n",
                 expected_struct_size);
     }
+
+    struct rlimit rlp;
+    getrlimit(RLIMIT_NOFILE, &rlp);
+    rlp.rlim_cur = rlp.rlim_max;
+    setrlimit(RLIMIT_NOFILE, &rlp);
     
     struct timeval tstart, tend, t0, t1;
     gettimeofday(&tstart, NULL);
