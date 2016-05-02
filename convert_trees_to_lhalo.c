@@ -1786,7 +1786,7 @@ int main(int argc, char **argv)
         for(int64_t j=0;j<forest_info->num_trees[i];j++) {
             fprintf(output_order_locations,"%"PRId64" %"PRId64"\n",
                     locations[tree_index].tree_root, locations[tree_index].forestid);
-            /* fflush(output_order_locations); */
+            fflush(output_order_locations);
             int64_t fileid = locations[tree_index].fileid;
             const int64_t nhalos = read_tree_into_forest(&nhalos_allocated, &forest_halos, forest_offset, &info,
 #ifdef USE_FGETS
@@ -1803,8 +1803,6 @@ int main(int argc, char **argv)
             totnhalos += nhalos;
             total_num_halos_written_all_files += nhalos;
         }
-        /* fprintf(stdout, " ..done loading trees\n"); */
-        /* fflush(stdout); */
         
         const int64_t out_fileid = forest_info->fileid[i];
         const int forestindex_thisfile = nforests_written_per_file[out_fileid];
@@ -1816,8 +1814,6 @@ int main(int argc, char **argv)
         int verbose = 0;
 
         /* Fix flybys -> multiple roots at z=0 must be joined such that only one root remains */
-        /* fprintf(stdout,"Fixing flybys ...\n"); */
-        /* fflush(stdout); */
         int status = fix_flybys(totnhalos, forest_halos, info, verbose);
         if(status != EXIT_SUCCESS) {
             fprintf(stderr,ANSI_COLOR_RED"ERROR while trying to convert Forest id = %"PRId64" with ntrees = %"PRId64 " last tree index = %10"PRId64 ANSI_COLOR_RESET"\n",
@@ -1837,22 +1833,12 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
                     
         }
-        /* fprintf(stdout,"Fixing flybys ......done\n"); */
-        /* fflush(stdout); */
 
         /* Entire tree is loaded in. Fix upid's*/
-        /* fprintf(stdout,"Fixing upid ...\n"); */
-        /* fflush(stdout); */
         const int max_snapnum = fix_upid(totnhalos, forest_halos, info, &interrupted, verbose);
-        /* fprintf(stdout,"Fixing upid ......done\n"); */
-        /* fflush(stdout); */
         
         /* Now the entire tree is loaded in. Assign the mergertree indices */
-        /* fprintf(stdout,"Assigning mergertree indices...\n"); */
-        /* fflush(stdout); */
         assign_mergertree_indices(totnhalos, forest_halos, info, max_snapnum);
-        /* fprintf(stdout,"Assigning mergertree indices......done\n"); */
-        /* fflush(stdout); */
 
         const int64_t num_bytes = sizeof(struct output_dtype) * totnhalos;
         forest_info->num_binary_bytes[i]  = num_bytes;
