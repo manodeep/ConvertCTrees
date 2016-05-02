@@ -5,8 +5,8 @@ OPT += -DUSE_STRINGPARSE
 include common.mk
 
 target := convert_trees_to_lhalo
-SRC1   := convert_trees_to_lhalo.c utils.c progressbar.c
-INCL   := output_datatype.h utils.h progressbar.h stringparse.h check_syscalls.h
+SRC1   := main.c convert_trees_to_lhalo.c utils.c progressbar.c
+INCL   := output_datatype.h utils.h progressbar.h stringparse.h check_syscalls.h convert_trees_to_lhalo.h
 ifeq (USE_STRINGPARSE,$(findstring USE_STRINGPARSE,$(OPT)))
   SRC1 += stringparse.c check_syscalls.c
   INCL += stringparse.h check_syscalls.h strtonum.c

@@ -9,6 +9,7 @@
 
 void usage(int argc, char **argv)
 {
+    (void) argc;
     fprintf(stderr,"USAGE: `%s' <first lhalotree file> <second lhalotree file> <check mergertree indices>\n",argv[0]);
 }    
 
