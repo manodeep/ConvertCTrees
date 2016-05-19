@@ -28,7 +28,7 @@ endif
 
 
 ifeq (icc,$(findstring icc,$(CC)))
-  CFLAGS += -xhost -opt-prefetch -opt-prefetch-distance=16 #-vec-report6  
+  CFLAGS += -xhost -ipo #-vec-report6  
   ifeq (USE_OMP,$(findstring USE_OMP,$(OPT)))
 		CFLAGS += -openmp
 		CLINK  += -openmp 
