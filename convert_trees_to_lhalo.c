@@ -604,6 +604,8 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             forest[nhalos].FileNr = -1;
             forest[nhalos].SubhaloIndex = (int) (forest_offset + nhalos);
             forest[nhalos].SubHalfMass  = -1.0f;
+
+            /* Carry the Rockstar/Ctrees generated haloID through */
             forest[nhalos].MostBoundID  = info[nhalos].id;
             
             /* All the mergertree indices */
@@ -1116,6 +1118,10 @@ int fix_flybys(const int64_t totnhalos, struct output_dtype *forest, struct addi
             continue;
         }
         if(info[i].pid == -1) {
+            //Show that this halo was switched from being a central
+            //just flip the sign. (MostBoundID should not have negative
+            //values -> this would signify a flyby)
+            forest[i].MostBoundID = -forest[i].MostBoundID;
             info[i].pid = fof_id;
             if(verbose == 1) {
                 fprintf(stderr,"id = %"PRId64" changed pid = -1 to pid = %"PRId64" for i=%"PRId64" FirstHaloInFOFgroup =%d last_halo_max_scale=%"PRId64"\n",
