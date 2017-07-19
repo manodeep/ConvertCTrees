@@ -482,7 +482,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                                       "%f %f %f "
                                       "%f %f %f "
                                       "%*f %*d %*d %*d %*d %d "
-                                      "%*d %*d %*f %*f %f %f ",
+                                      "%*d %*d %*f %*f %*f %f %f ",
                                       &info[nhalos].scale,
                                       &info[nhalos].id,
                                       &info[nhalos].desc_scale,
@@ -509,7 +509,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             //Use Peter Behroozi's custom string parser.
             SHORT_PARSETYPE;
 
-#define NUM_INPUTS 38
+#define NUM_INPUTS 39
             enum short_parsetype stypes[NUM_INPUTS] =  {
                 LF, LD, LF, LD, K,
                 LD, LD, K, K,
@@ -519,7 +519,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                 F, F, F,
                 F, F, F,
                 K, K, K, K, K, D,
-                K, K, K, K, F, F,
+                K, K, K, K, K, F, F,
             };
             enum parsetype types[NUM_INPUTS];
             for (int ii=0; ii<NUM_INPUTS; ii++) types[ii] = stypes[ii];
@@ -558,6 +558,7 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
                                       NULL,
                                       &(forest[nhalos].SnapNum),
                                       
+                                      NULL,
                                       NULL,
                                       NULL,
                                       NULL,
