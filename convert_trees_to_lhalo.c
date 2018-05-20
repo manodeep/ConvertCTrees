@@ -896,7 +896,7 @@ void assign_mergertree_indices(const int64_t totnhalos, struct output_dtype *for
                     "id = %"PRId64" pid = %"PRId64" upid = %"PRId64" snapnum = %d\n",
                     i,info[i].id, info[i].pid, info[i].upid, forest[i].SnapNum);
             
-            if((info[i].upid == fof_id) ) {
+            if(info[i].upid == fof_id) {
                 XASSERT(FirstHaloInFOFgroup < INT_MAX,
                         "Assigning FirstHaloInFOFgroup = %"PRId64". Must be less than %d\n",
                         FirstHaloInFOFgroup, INT_MAX);
