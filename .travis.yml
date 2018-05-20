@@ -1,0 +1,17 @@
+language: c
+
+notifications:
+  email:
+    recipients:
+      - manodeep@gmail.com
+    on_success: change
+    on_failure: always
+
+os:
+  - osx
+  - linux
+    
+install:
+  - make
+        
+script: true
