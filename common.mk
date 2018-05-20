@@ -74,10 +74,21 @@ endif
 
 UNAME := $(shell uname)
 ifeq ($(UNAME), Darwin)
- ## use the clang assembler instead of GNU assembler
- ## http://stackoverflow.com/questions/10327939/erroring-on-no-such-instruction-while-assembling-project-on-mac-os-x-lion
- ifeq (gcc,$(findstring gcc,$(CC)))
+  export CC_IS_CLANG ?= -1
+  ifeq ($(CC_IS_CLANG), -1)
+    CC_VERSION := $(shell $(CC) --version 2>/dev/null)
+    ifeq (clang,$(findstring clang,$(CC_VERSION)))
+      export CC_IS_CLANG := 1
+    else
+      export CC_IS_CLANG := 0
+    endif
+  endif
+  ## use the clang assembler instead of GNU assembler
+  ## Otherwise produces a warning for when used on `clang`
+  ## or an error when trying to use "real" gcc assembler
+  ## http://stackoverflow.com/questions/10327939/erroring-on-no-such-instruction-while-assembling-project-on-mac-os-x-lion
+  ifneq ($(CC_IS_CLANG), 1)
 	 CFLAGS += -Wa,-q
- endif
+  endif
 endif
 
