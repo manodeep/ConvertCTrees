@@ -1,3 +1,5 @@
+|Travis|
+
 ConvertCTrees
 #################
 
@@ -7,3 +9,6 @@ Please **pay very close** attention to the Consistent-Trees version and **confir
 
 
 
+.. |Travis| image:: https://travis-ci.com/manodeep/ConvertCTrees.svg?branch=master
+   :target: https://travis-ci.com/manodeep/ConvertCTrees
+   :alt: Travis Compilation tests
