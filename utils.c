@@ -156,7 +156,7 @@ int64_t copy_bytes_with_pread(const size_t bytes, int in, int out, off_t offset)
         if( (bytes_read = pread(in, buffer, bytes_left, offset)) > 0 ) {
             offset += bytes_read;
             if(write(out, buffer, bytes_read) != bytes_read) {
-                fprintf(stderr,"Could not write %zu bytes\n",bytes_read);
+                fprintf(stderr,"Could not write %"PRId64" bytes\n",bytes_read);
                 perror(NULL);
                 exit(EXIT_FAILURE);
             } else {
