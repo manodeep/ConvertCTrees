@@ -615,13 +615,10 @@ int64_t read_tree_into_forest(int64_t *nhalos_allocated, struct output_dtype **s
             forest[nhalos].NextProgenitor = -1;
             forest[nhalos].FirstHaloInFOFgroup = -1;
             forest[nhalos].NextHaloInFOFgroup = -1;
-            /* if(info[nhalos].id == 3058982278 || info[nhalos].id == 3058982280) { */
-            /*     fprintf(stderr,"info[%"PRId64"].id = %"PRId64". pid = %"PRId64" upid = %"PRId64"\n", */
-            /*             nhalos, info[nhalos].id, info[nhalos].pid, info[nhalos].upid); */
-            /*     fprintf(stderr,"##buffer = `%s'###\n",&buffer[start_pos]); */
-            /*     fprintf(stderr,"M200 = %lf Mtophat = %lf\n", forest[nhalos].M_Mean200, forest[nhalos].M_TopHat); */
-            /* } */
             
+            /* Convert the snapshot index output by Consistent Trees
+               into the snapshot number as reported by the simulation */
+            forest[nhalos].SnapNum += SNAP_OFFSET;
 
 #if 0
             if(num_lines_printed < 10000) {
