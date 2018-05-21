@@ -39,14 +39,10 @@ test: compare_two_lhalotree $(INCL) common.mk Makefile
 compare_two_lhalotree: $(OBJS2) $(INCL) common.mk Makefile
 	$(CC) $(OBJS2) $(CLINK) $(CFLAGS) -o $@
 
-.PHONY: clean clena celan 
+.PHONY: clean clena celan celna
 
 clean:
 	$(RM) $(target) $(OBJS1) $(OBJS2)
 
-clena: clean
-
-celan: celan
-
-
+clena celan celna: clean
 

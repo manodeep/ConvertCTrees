@@ -37,8 +37,8 @@ else
 
   ### compiler specific flags for gcc
   ifeq (gcc,$(findstring gcc,$(CC)))
-		CFLAGS += -ftree-vectorize -flto -funroll-loops #-ftree-vectorizer-verbose=6 -fopt-info-vec-missed #-fprofile-use -fprofile-correction
-        CLINK += -flto
+	CFLAGS += -ftree-vectorize -funroll-loops #-flto -ftree-vectorizer-verbose=6 -fopt-info-vec-missed #-fprofile-use -fprofile-correction
+        CLINK += #-flto
     ifeq (USE_OMP,$(findstring USE_OMP,$(OPT)))
 			CFLAGS += -fopenmp
 			CLINK  += -fopenmp
