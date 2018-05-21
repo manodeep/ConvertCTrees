@@ -1,6 +1,16 @@
+## These are code optimization options
 #OPT += -DUSE_FGETS
 #OPT += -USE_MPI
 OPT += -DUSE_STRINGPARSE
+
+
+# This is to correct the snapshot index output by
+# Consistent Trees into the actual simulation snapshot
+# number. See https://bitbucket.org/pbehroozi/consistent-trees/commits/41866601a537ce5f3d159d0364ef7d7082da43a5
+# For instance, if the first 5 snapshots in the simulation
+# did not contain sufficient halos, then the Consistent Trees `snap_idx == 0`
+# will correspond to the simulation `snapnum == 5`
+OPT += -DSNAP_OFFSET=0
 
 include common.mk
 
